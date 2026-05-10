@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>INDRA — India OSINT Intelligence Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --s:#FF9933;--g:#138808;--b:#4169E1;
+  --bg:#030712;--card:#0a0f1e;--panel:#0d1424;
+  --bdr:rgba(65,105,225,0.22);--bds:rgba(255,153,51,0.45);
+  --dim:#4a6080;--mid:#8baac0;--w:#F0F0EB;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--w);font-family:'Rajdhani',sans-serif;font-size:15px;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(65,105,225,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(65,105,225,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 28px;background:rgba(8,12,24,0.98);border-bottom:1px solid var(--bdr);position:sticky;top:0;z-index:200;backdrop-filter:blur(16px);}
+.logo{display:flex;align-items:center;gap:12px;text-decoration:none;}
+.logo-mark{width:38px;height:38px;border:2px solid var(--s);border-radius:50%;display:flex;align-items:center;justify-content:center;animation:spin 14s linear infinite;font-size:15px;color:var(--s);}
+@keyframes spin{to{transform:rotate(360deg);}}
+.logo-text{font-family:'Orbitron',monospace;font-weight:900;font-size:20px;letter-spacing:4px;background:linear-gradient(90deg,var(--s),#fff 50%,var(--g));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.logo-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:2px;margin-top:-2px;}
+.topbar-right{display:flex;align-items:center;gap:18px;}
+.be-dot{width:8px;height:8px;border-radius:50%;background:#ff4444;transition:all 0.4s;}
+.be-dot.live{background:var(--g);box-shadow:0 0 8px var(--g);animation:pulse 2.2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.be-label{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--mid);letter-spacing:1px;transition:color 0.4s;}
+.be-label.live{color:var(--g);}
+.clock{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--dim);letter-spacing:1px;}
+.tricolor{height:3px;background:linear-gradient(90deg,var(--s) 33.3%,#fff 33.3%,#fff 66.6%,var(--g) 66.6%);}
+
+/* AUTH BAR */
+.auth-bar{background:rgba(8,12,24,0.92);border-bottom:1px solid var(--bdr);padding:8px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.auth-inputs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.ain{background:var(--card);border:1px solid var(--bdr);border-radius:5px;padding:7px 12px;color:var(--w);font-family:'Share Tech Mono',monospace;font-size:12px;outline:none;width:154px;transition:border-color 0.2s;}
+.ain:focus{border-color:var(--s);}
+.ain::placeholder{color:var(--dim);}
+.btn{border:none;border-radius:5px;padding:8px 16px;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all 0.2s;text-transform:uppercase;}
+.btn-s{background:linear-gradient(135deg,var(--s),#d06800);color:#000;}
+.btn-s:hover{box-shadow:0 0 14px rgba(255,153,51,0.5);transform:translateY(-1px);}
+.btn-out{background:transparent;border:1px solid var(--bdr);color:var(--mid);font-size:9px;padding:6px 12px;}
+.btn-out:hover{border-color:var(--s);color:var(--s);}
+.btn-red{background:rgba(255,50,50,0.12);border:1px solid rgba(255,50,50,0.3);color:#ff7070;font-size:9px;padding:6px 12px;}
+.auth-status{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--mid);letter-spacing:1px;}
+.auth-status.ok{color:var(--g);}
+.auth-status.err{color:#ff5555;}
+
+/* TABS */
+.page-tabs{display:flex;gap:2px;padding:12px 28px 0;background:rgba(8,12,24,0.7);border-bottom:1px solid var(--bdr);}
+.ptab{font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 16px;border-radius:4px 4px 0 0;border:1px solid transparent;border-bottom:none;color:var(--mid);cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.ptab.active{background:var(--card);color:var(--s);border-color:var(--bdr);border-bottom:1px solid var(--card);}
+.ptab:hover:not(.active){color:var(--w);}
+
+/* PAGES */
+.page{display:none;padding:22px 28px 48px;max-width:1440px;margin:0 auto;}
+.page.active{display:block;}
+
+/* LAYOUT */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:18px;}
+.card.accent{border-color:rgba(255,153,51,0.3);}
+.gap{margin-bottom:22px;}
+.divider{height:1px;background:var(--bdr);margin:22px 0;}
+
+/* SECTION TITLE */
+.stitle{font-family:'Orbitron',monospace;font-size:11px;letter-spacing:3px;color:var(--s);text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.stitle::before{content:'';width:3px;height:14px;background:var(--s);border-radius:2px;}
+.stitle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.stitle-row .stitle{margin-bottom:0;}
+.staction{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);cursor:pointer;letter-spacing:1px;text-transform:uppercase;transition:color 0.2s;border:none;background:none;}
+.staction:hover{color:var(--s);}
+
+/* STATS */
+.stat{text-align:center;padding:6px;}
+.sn{font-family:'Orbitron',monospace;font-size:26px;font-weight:700;color:var(--s);}
+.sn.g{color:var(--g);}
+.sn.b{color:var(--b);}
+.sn.r{color:#ff5555;}
+.sl{font-size:10px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px;font-family:'Share Tech Mono',monospace;}
+
+/* SEARCH */
+.s-bar{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.s-wrap{flex:1;min-width:200px;position:relative;}
+.s-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--dim);font-size:16px;pointer-events:none;}
+input.s-in{width:100%;background:var(--card);border:1px solid var(--bdr);border-radius:6px;padding:12px 16px 12px 40px;color:var(--w);font-family:'Share Tech Mono',monospace;font-size:13px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;}
+input.s-in:focus{border-color:var(--s);box-shadow:0 0 18px rgba(255,153,51,0.12);}
+input.s-in::placeholder{color:var(--dim);}
+select.s-sel{background:var(--card);border:1px solid var(--bdr);border-radius:6px;padding:12px 14px;color:var(--w);font-family:'Share Tech Mono',monospace;font-size:12px;outline:none;cursor:pointer;transition:border-color 0.2s;}
+select.s-sel:focus{border-color:var(--s);}
+.qtags{display:flex;gap:6px;flex-wrap:wrap;}
+.qtag{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;padding:4px 10px;border-radius:3px;border:1px solid var(--bdr);color:var(--mid);cursor:pointer;transition:all 0.2s;}
+.qtag:hover{border-color:var(--s);color:var(--s);}
+
+/* TERMINAL */
+.term{background:#010408;border:1px solid var(--bdr);border-radius:8px;padding:16px 20px;font-family:'Share Tech Mono',monospace;font-size:12px;line-height:1.9;min-height:150px;max-height:420px;overflow-y:auto;}
+.term::-webkit-scrollbar{width:4px;}
+.term::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px;}
+.tl{margin:1px 0;}
+.tp{color:var(--g);}
+.tc{color:var(--w);}
+.to{color:var(--mid);}
+.tok{color:var(--g);}
+.tw{color:var(--s);}
+.te{color:#ff5555;}
+.th{color:var(--s);}
+.tb{color:var(--b);}
+.cursor{display:inline-block;width:8px;height:13px;background:var(--s);animation:blink 1s step-end infinite;vertical-align:text-bottom;margin-left:2px;}
+@keyframes blink{50%{opacity:0;}}
+.lbar{height:2px;background:var(--bdr);border-radius:1px;overflow:hidden;margin-bottom:8px;display:none;}
+.lfill{height:100%;background:linear-gradient(90deg,var(--s),var(--g));width:0;border-radius:1px;transition:width 0.3s ease;}
+
+/* FEED */
+.fi{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid rgba(65,105,225,0.1);cursor:pointer;transition:all 0.15s;}
+.fi:last-child{border-bottom:none;}
+.fi:hover{background:rgba(255,153,51,0.03);margin:0 -18px;padding:11px 18px;}
+.fdot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0;}
+.fdot.hi{background:var(--s);box-shadow:0 0 6px var(--s);}
+.fdot.md{background:var(--b);}
+.fdot.lo{background:var(--dim);}
+.fdot.cr{background:#ff3333;box-shadow:0 0 8px #ff3333;}
+.ft{font-weight:700;font-size:13px;margin-bottom:3px;line-height:1.4;}
+.fm{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);display:flex;gap:12px;flex-wrap:wrap;}
+.fsrc{color:var(--s);}
+
+/* API HEALTH */
+.api-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.asi{background:var(--panel);border:1px solid var(--bdr);border-radius:6px;padding:12px 14px;display:flex;align-items:center;gap:10px;transition:border-color 0.2s;}
+.asi:hover{border-color:var(--s);}
+.asi.ok{border-left:3px solid var(--g);}
+.asi.warn{border-left:3px solid var(--s);}
+.asi.off{border-left:3px solid #ff4444;}
+.asid{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.asid.ok{background:var(--g);box-shadow:0 0 6px var(--g);animation:pulse 2s infinite;}
+.asid.warn{background:var(--s);box-shadow:0 0 6px var(--s);}
+.asid.off{background:#ff4444;}
+.asib{flex:1;}
+.asin{font-weight:700;font-size:13px;letter-spacing:0.5px;}
+.asiu{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:2px;}
+.asims{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--mid);margin-left:auto;}
+
+/* CASES */
+.cases-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.case-card{background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:16px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.case-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:8px 8px 0 0;}
+.case-card.high::before{background:var(--s);}
+.case-card.medium::before{background:var(--b);}
+.case-card.low::before{background:var(--dim);}
+.case-card:hover{transform:translateY(-2px);border-color:var(--s);box-shadow:0 8px 24px rgba(0,0,0,0.4);}
+.cc-title{font-weight:700;font-size:15px;letter-spacing:0.5px;margin-bottom:5px;margin-top:4px;}
+.cc-target{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--mid);margin-bottom:8px;}
+.cc-meta{display:flex;gap:7px;flex-wrap:wrap;}
+.badge{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;padding:3px 8px;border-radius:3px;display:inline-block;}
+.b-open{background:rgba(65,105,225,0.15);color:var(--b);border:1px solid rgba(65,105,225,0.3);}
+.b-prog{background:rgba(255,153,51,0.1);color:var(--s);border:1px solid rgba(255,153,51,0.3);}
+.b-done{background:rgba(19,136,8,0.1);color:var(--g);border:1px solid rgba(19,136,8,0.3);}
+.b-hi{background:rgba(255,60,60,0.1);color:#ff7070;border:1px solid rgba(255,60,60,0.25);}
+.cc-date{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);margin-top:8px;}
+
+/* ATTRIBUTION */
+.attr{background:rgba(255,153,51,0.04);border:1px solid rgba(255,153,51,0.2);border-radius:6px;padding:12px 16px;margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--mid);display:none;}
+.attr a{color:var(--b);text-decoration:none;}
+.attr a:hover{color:var(--s);}
+
+/* MODAL */
+.mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(5px);}
+.mbg.open{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--bds);border-radius:10px;padding:28px;width:100%;max-width:460px;position:relative;}
+.modal h3{font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;color:var(--s);margin-bottom:18px;}
+.mc{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;line-height:1;}
+.mc:hover{color:var(--s);}
+.field{margin-bottom:14px;}
+.field label{display:block;font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;}
+.field input,.field textarea,.field select{width:100%;background:var(--card);border:1px solid var(--bdr);border-radius:5px;padding:10px 12px;color:var(--w);font-family:'Rajdhani',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s;resize:vertical;}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--s);}
+.fmsg{font-family:'Share Tech Mono',monospace;font-size:11px;padding:8px 12px;border-radius:4px;margin-bottom:12px;letter-spacing:0.5px;display:none;}
+.fmsg.ok{background:rgba(19,136,8,0.1);color:var(--g);border:1px solid rgba(19,136,8,0.25);display:block;}
+.fmsg.err{background:rgba(255,60,60,0.1);color:#ff7070;border:1px solid rgba(255,60,60,0.25);display:block;}
+
+/* HISTORY TABLE */
+.htbl{width:100%;border-collapse:collapse;font-size:13px;}
+.htbl th{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;padding:8px 12px;text-align:left;border-bottom:1px solid var(--bdr);}
+.htbl td{padding:10px 12px;border-bottom:1px solid rgba(65,105,225,0.08);vertical-align:middle;}
+.htbl tr:hover td{background:rgba(255,153,51,0.03);}
+.method-badge{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;padding:3px 8px;border-radius:3px;border:1px solid var(--bdr);color:var(--mid);}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:40px 20px;color:var(--dim);font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:1px;}
+
+/* FOOTER */
+.footer{text-align:center;padding:16px;border-top:1px solid var(--bdr);font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:1.5px;}
+.footer span{color:var(--s);}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<nav class="topbar">
+  <a class="logo" href="#" onclick="showPage('dash',event)">
+    <div class="logo-mark">✦</div>
+    <div>
+      <div class="logo-text">INDRA</div>
+      <div class="logo-sub">India OSINT Intelligence Platform v2.1</div>
+    </div>
+  </a>
+  <div class="topbar-right">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="be-dot" id="be-dot"></div>
+      <span class="be-label" id="be-label">CONNECTING...</span>
+    </div>
+    <div class="clock" id="clock">--:--:-- IST</div>
+  </div>
+</nav>
+<div class="tricolor"></div>
+
+<!-- AUTH BAR -->
+<div class="auth-bar">
+  <div class="auth-inputs" id="auth-form">
+    <input class="ain" id="u-user" placeholder="username" autocomplete="username"/>
+    <input class="ain" id="u-pass" placeholder="password" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"/>
+    <button class="btn btn-s" onclick="login()">LOGIN</button>
+    <button class="btn btn-out" onclick="openModal('m-reg')">REGISTER</button>
+  </div>
+  <div id="auth-logged" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span class="auth-status ok" id="u-label"></span>
+    <button class="btn btn-out" onclick="openModal('m-case')">+ NEW CASE</button>
+    <button class="btn btn-red" onclick="logout()">LOGOUT</button>
+  </div>
+  <span class="auth-status" id="auth-msg"></span>
+</div>
+
+<!-- PAGE TABS -->
+<div class="page-tabs">
+  <div class="ptab active"  onclick="showPage('dash',event)">⊞ Dashboard</div>
+  <div class="ptab" onclick="showPage('search',event)">🔍 OSINT Search</div>
+  <div class="ptab" onclick="showPage('cases',event)">📁 Cases</div>
+  <div class="ptab" onclick="showPage('feeds',event)">📡 Live Feeds</div>
+  <div class="ptab" onclick="showPage('history',event)">🕑 History</div>
+</div>
+
+<!-- ══════════════ DASHBOARD ══════════════ -->
+<div class="page active" id="page-dash">
+  <div class="grid4 gap" style="margin-top:4px;">
+    <div class="card stat"><div class="sn" id="s-tools">47</div><div class="sl">Total Tools</div></div>
+    <div class="card stat"><div class="sn g" id="s-feeds">—</div><div class="sl">Feed Items</div></div>
+    <div class="card stat"><div class="sn b" id="s-cases">—</div><div class="sl">My Cases</div></div>
+    <div class="card stat"><div class="sn r" id="s-queries">—</div><div class="sl">Queries Run</div></div>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="stitle">Live Intelligence Feed</div>
+      <div class="card" id="dash-feed">
+        <div class="empty">Login to load intelligence feed</div>
+      </div>
+    </div>
+    <div>
+      <div class="stitle">API Health Monitor</div>
+      <div class="api-grid" id="dash-health">
+        <div class="asi warn"><div class="asid warn"></div><div class="asib"><div class="asin">ip-api.com</div><div class="asiu">FREE · NO KEY</div></div><div class="asims">—</div></div>
+        <div class="asi warn"><div class="asid warn"></div><div class="asib"><div class="asin">rdap.org</div><div class="asiu">FREE · PUBLIC</div></div><div class="asims">—</div></div>
+        <div class="asi warn"><div class="asid warn"></div><div class="asib"><div class="asin">Nominatim/OSM</div><div class="asiu">FREE · ODbL</div></div><div class="asims">—</div></div>
+        <div class="asi warn"><div class="asid warn"></div><div class="asib"><div class="asin">data.gov.in</div><div class="asiu">KEY OPTIONAL</div></div><div class="asims">—</div></div>
+        <div class="asi warn"><div class="asid warn"></div><div class="asib"><div class="asin">GDELT</div><div class="asiu">FREE · OPEN</div></div><div class="asims">—</div></div>
+        <div class="asi warn"><div class="asid warn"></div><div class="asib"><div class="asin">AbuseIPDB</div><div class="asiu">KEY OPTIONAL</div></div><div class="asims">—</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ OSINT SEARCH ══════════════ -->
+<div class="page" id="page-search">
+  <div class="stitle" style="margin-top:4px;">Live OSINT Query Engine</div>
+  <div class="card accent gap">
+    <div class="s-bar">
+      <div class="s-wrap">
+        <span class="s-icon">⌕</span>
+        <input class="s-in" id="q-inp" type="text" placeholder="Enter IP, domain, company, keyword, place..." onkeydown="if(event.key==='Enter')runQuery()"/>
+      </div>
+      <select class="s-sel" id="q-type">
+        <option value="ip">IP Geolocation</option>
+        <option value="whois">Domain WHOIS</option>
+        <option value="company">Company Lookup</option>
+        <option value="threat">Threat Intel</option>
+        <option value="news">News Monitor</option>
+        <option value="geo">GeoPortal</option>
+      </select>
+      <select class="s-sel" id="q-case" style="min-width:150px;">
+        <option value="">No Case</option>
+      </select>
+      <button class="btn btn-s" onclick="runQuery()">RUN QUERY</button>
+    </div>
+    <div class="qtags">
+      <span class="qtag" onclick="setQ('ip','8.8.8.8')">🌐 8.8.8.8</span>
+      <span class="qtag" onclick="setQ('ip','1.1.1.1')">🌐 1.1.1.1</span>
+      <span class="qtag" onclick="setQ('whois','isro.gov.in')">🔍 isro.gov.in</span>
+      <span class="qtag" onclick="setQ('whois','cert-in.org.in')">🔍 cert-in.org.in</span>
+      <span class="qtag" onclick="setQ('threat','1.1.1.1')">🛡️ Threat: 1.1.1.1</span>
+      <span class="qtag" onclick="setQ('news','cyber attack india')">📰 cyber attack india</span>
+      <span class="qtag" onclick="setQ('geo','Dehradun')">📍 Dehradun</span>
+      <span class="qtag" onclick="setQ('geo','Mumbai')">📍 Mumbai</span>
+      <span class="qtag" onclick="setQ('company','Infosys')">🏢 Infosys</span>
+    </div>
+  </div>
+
+  <div class="stitle">Query Output</div>
+  <div class="lbar" id="lbar"><div class="lfill" id="lfill"></div></div>
+  <div class="term" id="term">
+    <div class="tl"><span class="tp">indra@osint:~$</span> <span class="tc">system --status</span></div>
+    <div class="tl"><span class="tok">✓ INDRA v2.1 — backend at 127.0.0.1:8000</span></div>
+    <div class="tl"><span class="to">→ Login above, then select a query type and run</span></div>
+    <div class="tl"><span class="to">→ Every query is logged to your history and optionally linked to a case</span></div>
+    <div class="tl"><span class="tp">indra@osint:~$</span> <span class="cursor"></span></div>
+  </div>
+  <div class="attr" id="attr"></div>
+</div>
+
+<!-- ══════════════ CASES ══════════════ -->
+<div class="page" id="page-cases">
+  <div class="stitle-row gap" style="margin-top:4px;">
+    <div class="stitle" style="margin-bottom:0;">Investigation Cases</div>
+    <button class="btn btn-s" onclick="openModal('m-case')">+ NEW CASE</button>
+  </div>
+  <div class="cases-grid" id="cases-grid">
+    <div style="grid-column:1/-1;" class="empty">Login to view your investigation cases</div>
+  </div>
+</div>
+
+<!-- ══════════════ LIVE FEEDS ══════════════ -->
+<div class="page" id="page-feeds">
+  <div class="stitle-row gap" style="margin-top:4px;">
+    <div class="stitle" style="margin-bottom:0;">Intelligence Feeds</div>
+    <button class="staction" onclick="triggerRefresh()">⟳ REFRESH FEEDS</button>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="stitle">CERT-In / Cyber Advisories</div>
+      <div class="card" id="feed-certin">
+        <div class="empty">Login to view advisories</div>
+      </div>
+    </div>
+    <div>
+      <div class="stitle">BoomLive Fact-Checks</div>
+      <div class="card" id="feed-boomlive">
+        <div class="empty">Login to view fact-checks</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ HISTORY ══════════════ -->
+<div class="page" id="page-history">
+  <div class="stitle" style="margin-top:4px;">Query History</div>
+  <div class="card" style="overflow-x:auto;">
+    <table class="htbl">
+      <thead>
+        <tr>
+          <th>#</th><th>Type</th><th>Input</th>
+          <th>Source</th><th>Time (ms)</th><th>Status</th><th>When (IST)</th>
+        </tr>
+      </thead>
+      <tbody id="hist-body">
+        <tr><td colspan="7" class="empty">Login to view history</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════ REGISTER MODAL ══════════════ -->
+<div class="mbg" id="m-reg">
+  <div class="modal">
+    <button class="mc" onclick="closeModal('m-reg')">✕</button>
+    <h3>CREATE ACCOUNT</h3>
+    <div class="fmsg" id="reg-msg"></div>
+    <div class="field"><label>Username</label><input id="r-user" placeholder="3–50 chars, letters/numbers"/></div>
+    <div class="field"><label>Email</label><input id="r-email" type="email" placeholder="you@example.com"/></div>
+    <div class="field"><label>Full Name (optional)</label><input id="r-name" placeholder="Your name"/></div>
+    <div class="field"><label>Password (min 8 chars)</label><input id="r-pass" type="password"/></div>
+    <button class="btn btn-s" style="width:100%;" onclick="register()">CREATE ACCOUNT</button>
+  </div>
+</div>
+
+<!-- ══════════════ NEW CASE MODAL ══════════════ -->
+<div class="mbg" id="m-case">
+  <div class="modal">
+    <button class="mc" onclick="closeModal('m-case')">✕</button>
+    <h3>NEW INVESTIGATION CASE</h3>
+    <div class="fmsg" id="case-msg"></div>
+    <div class="field"><label>Case Title *</label><input id="c-title" placeholder="e.g. Phishing Domain Investigation"/></div>
+    <div class="field"><label>Target (IP / Domain / Company)</label><input id="c-target" placeholder="e.g. malicious-site.in or 203.0.113.45"/></div>
+    <div class="field"><label>Priority</label>
+      <select id="c-pri"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
+    </div>
+    <div class="field"><label>Description</label><textarea id="c-desc" rows="3" placeholder="Brief description of the investigation..."></textarea></div>
+    <div class="field"><label>Tags (comma-separated)</label><input id="c-tags" placeholder="phishing, india, banking"/></div>
+    <button class="btn btn-s" style="width:100%;margin-top:4px;" onclick="createCase()">CREATE CASE</button>
+  </div>
+</div>
+
+<div class="footer">
+  INDRA Platform · <span>Academic Research Edition</span> · Compliant with IT Act 2000 & DPDP Act 2023 · 🇮🇳
+</div>
+
+<script>
+const API = 'http://127.0.0.1:8000/api';
+let token = localStorage.getItem('indra_token') || null;
+let me    = null;
+
+// ── CLOCK ──────────────────────────────────────────────
+function tick(){
+  const d = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+  const p = n=>String(n).padStart(2,'0');
+  document.getElementById('clock').textContent =
+    `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} IST`;
+}
+setInterval(tick,1000); tick();
+
+// ── BACKEND HEALTH ──────────────────────────────────────
+async function checkBackend(){
+  const dot = document.getElementById('be-dot');
+  const lbl = document.getElementById('be-label');
+  try{
+    const r = await fetch(`${API}/health`,{signal:AbortSignal.timeout(3000)});
+    if(r.ok){
+      dot.className='be-dot live';
+      lbl.className='be-label live';
+      lbl.textContent='BACKEND ONLINE';
+      return true;
+    }
+  }catch{}
+  dot.className='be-dot';
+  lbl.className='be-label';
+  lbl.textContent='OFFLINE — run: uvicorn main:app --reload';
+  return false;
+}
+setInterval(checkBackend,8000); checkBackend();
+
+// ── PAGE NAV ────────────────────────────────────────────
+function showPage(id,e){
+  if(e) e.preventDefault();
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  const tabs=['dash','search','cases','feeds','history'];
+  const idx=tabs.indexOf(id);
+  if(idx>=0) document.querySelectorAll('.ptab')[idx].classList.add('active');
+  if(id==='cases')   loadCases();
+  if(id==='feeds')   loadFeeds();
+  if(id==='history') loadHistory();
+}
+
+// ── AUTH HELPERS ────────────────────────────────────────
+function hdrs(){ return {'Content-Type':'application/json','Authorization':`Bearer ${token}`}; }
+
+function setAuthMsg(txt,type){
+  const el=document.getElementById('auth-msg');
+  el.className='auth-status'+(type?' '+type:'');
+  el.textContent=txt;
+}
+
+function onLoggedIn(){
+  document.getElementById('auth-form').style.display='none';
+  document.getElementById('auth-logged').style.display='flex';
+  document.getElementById('u-label').textContent=`✓ ${me.username} [${me.role}]`;
+  setAuthMsg('');
+  loadDashboard();
+  loadCaseSelect();
+}
+
+// ── LOGIN ───────────────────────────────────────────────
+async function login(){
+  const u=document.getElementById('u-user').value.trim();
+  const p=document.getElementById('u-pass').value;
+  if(!u||!p) return setAuthMsg('Enter username and password','err');
+  try{
+    const r=await fetch(`${API}/auth/login`,{
+      method:'POST',
+      body:new URLSearchParams({username:u,password:p}),
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    });
+    const d=await r.json();
+    if(!r.ok) return setAuthMsg(d.detail||'Login failed','err');
+    token=d.access_token; me=d.user;
+    localStorage.setItem('indra_token',token);
+    onLoggedIn();
+  }catch{ setAuthMsg('Backend unreachable','err'); }
+}
+
+async function autoLogin(){
+  if(!token) return;
+  try{
+    const r=await fetch(`${API}/auth/me`,{headers:hdrs()});
+    if(r.ok){ me=await r.json(); onLoggedIn(); }
+    else{ token=null; localStorage.removeItem('indra_token'); }
+  }catch{}
+}
+
+function logout(){
+  token=null; me=null;
+  localStorage.removeItem('indra_token');
+  document.getElementById('auth-form').style.display='flex';
+  document.getElementById('auth-logged').style.display='none';
+  document.getElementById('u-user').value='';
+  document.getElementById('u-pass').value='';
+  ['s-feeds','s-cases','s-queries'].forEach(id=>document.getElementById(id).textContent='—');
+}
+
+// ── REGISTER ────────────────────────────────────────────
+async function register(){
+  const body={
+    username: document.getElementById('r-user').value.trim(),
+    email:    document.getElementById('r-email').value.trim(),
+    password: document.getElementById('r-pass').value,
+    full_name:document.getElementById('r-name').value.trim()||null,
+  };
+  try{
+    const r=await fetch(`${API}/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!r.ok) return setFMsg('reg-msg',d.detail||'Registration failed','err');
+    setFMsg('reg-msg','Account created — you can now login','ok');
+    setTimeout(()=>closeModal('m-reg'),1800);
+  }catch{ setFMsg('reg-msg','Backend unreachable','err'); }
+}
+
+// ── DASHBOARD ───────────────────────────────────────────
+async function loadDashboard(){
+  if(!token) return;
+  try{
+    const [fR,cR,hR,aR]=await Promise.all([
+      fetch(`${API}/feeds/items?limit=6`,{headers:hdrs()}),
+      fetch(`${API}/cases`,{headers:hdrs()}),
+      fetch(`${API}/query/history?limit=1`,{headers:hdrs()}),
+      fetch(`${API}/feeds/api-status`,{headers:hdrs()}),
+    ]);
+    if(fR.ok){
+      const f=await fR.json();
+      document.getElementById('s-feeds').textContent=f.length;
+      renderDashFeed(f);
+    }
+    if(cR.ok){
+      const c=await cR.json();
+      document.getElementById('s-cases').textContent=c.length;
+    }
+    if(hR.ok){
+      const h=await hR.json();
+      document.getElementById('s-queries').textContent=h.length>0?'1+':'0';
+    }
+    if(aR.ok){
+      const a=await aR.json();
+      renderApiHealth(a);
+    }
+    // Get actual query count
+    const hAll=await fetch(`${API}/query/history?limit=200`,{headers:hdrs()});
+    if(hAll.ok){
+      const ha=await hAll.json();
+      document.getElementById('s-queries').textContent=ha.length;
+    }
+  }catch(e){ console.error('Dashboard load error:',e); }
+}
+
+function renderDashFeed(items){
+  const el=document.getElementById('dash-feed');
+  if(!items.length){
+    el.innerHTML='<div class="empty">No feed items yet — feeds auto-refresh every 30 min<br>or click Refresh Feeds on the Feeds page</div>';
+    return;
+  }
+  el.innerHTML=items.slice(0,6).map(i=>`
+    <div class="fi" onclick="window.open('${esc(i.url||'#')}','_blank')">
+      <div class="fdot ${sevClass(i.severity)}"></div>
+      <div>
+        <div class="ft">${esc(i.title.substring(0,80))}${i.title.length>80?'…':''}</div>
+        <div class="fm">
+          <span class="fsrc">${esc(i.source)}</span>
+          <span>${i.published_at?fmtDate(i.published_at):'Recent'}</span>
+          <span>${i.severity.toUpperCase()}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderApiHealth(apis){
+  if(!apis.length) return;
+  const grid=document.getElementById('dash-health');
+  grid.innerHTML=apis.map(a=>{
+    const cls=a.is_healthy?'ok':'off';
+    const keyInfo=a.requires_key?(a.key_configured?'KEY ✓':'KEY NEEDED'):'FREE · NO KEY';
+    return `<div class="asi ${cls}">
+      <div class="asid ${cls}"></div>
+      <div class="asib">
+        <div class="asin">${esc(a.api_name)}</div>
+        <div class="asiu">${keyInfo}</div>
+      </div>
+      <div class="asims">${a.last_response_ms?a.last_response_ms+'ms':'—'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── QUERY ENGINE ────────────────────────────────────────
+function setQ(type,val){
+  document.getElementById('q-inp').value=val;
+  document.getElementById('q-type').value=type;
+  showPage('search',null);
+}
+
+let ltimer;
+function startLoad(){
+  document.getElementById('lbar').style.display='block';
+  let pct=0;
+  ltimer=setInterval(()=>{
+    pct=Math.min(pct+Math.random()*12,88);
+    document.getElementById('lfill').style.width=pct+'%';
+  },200);
+}
+function stopLoad(){
+  clearInterval(ltimer);
+  document.getElementById('lfill').style.width='100%';
+  setTimeout(()=>{
+    document.getElementById('lbar').style.display='none';
+    document.getElementById('lfill').style.width='0';
+  },500);
+}
+
+function addLine(cls,html){
+  const t=document.getElementById('term');
+  t.querySelectorAll('.cursor').forEach(c=>c.closest('.tl')?.remove());
+  const d=document.createElement('div');
+  d.className='tl';
+  d.innerHTML=`<span class="${cls}">${html}</span>`;
+  t.appendChild(d);
+  t.scrollTop=t.scrollHeight;
+}
+function addPrompt(){
+  const t=document.getElementById('term');
+  const d=document.createElement('div');
+  d.className='tl';
+  d.innerHTML=`<span class="tp">indra@osint:~$</span> <span class="cursor"></span>`;
+  t.appendChild(d);
+  t.scrollTop=t.scrollHeight;
+}
+
+async function runQuery(){
+  const inp=document.getElementById('q-inp').value.trim();
+  const type=document.getElementById('q-type').value;
+  const caseId=document.getElementById('q-case').value;
+
+  if(!inp){
+    const el=document.getElementById('q-inp');
+    el.style.borderColor='var(--s)';
+    setTimeout(()=>el.style.borderColor='',1500);
+    return;
+  }
+
+  document.getElementById('attr').style.display='none';
+  document.getElementById('term').querySelectorAll('.cursor').forEach(c=>c.closest('.tl')?.remove());
+
+  addLine('tp',`indra@osint:~$ <span class="tc">query --type=${type} "${esc(inp)}"</span>`);
+
+  if(!token){
+    addLine('tw','⚠ Not authenticated — please login first');
+    addPrompt(); return;
+  }
+
+  addLine('to',`→ Type: <span class="th">${type.toUpperCase()}</span> · Input: <span class="th">${esc(inp)}</span>`);
+  startLoad();
+
+  const body={query_type:type,query_input:inp};
+  if(caseId) body.case_id=parseInt(caseId);
+
+  try{
+    const r=await fetch(`${API}/query`,{
+      method:'POST',
+      headers:hdrs(),
+      body:JSON.stringify(body),
+    });
+    const d=await r.json();
+    stopLoad();
+
+    if(!r.ok){
+      addLine('te',`✗ ${esc(d.detail||JSON.stringify(d))}`);
+      addPrompt(); return;
+    }
+
+    addLine(
+      d.success?'tok':'tw',
+      `${d.success?'✓':'⚠'} Source: <span class="th">${esc(d.source)}</span>` +
+      `${d.is_fallback?' <span class="tb">[FALLBACK]</span>':''} · ${d.response_ms}ms`
+    );
+
+    if(d.success){
+      renderResult(d.data, type);
+    } else {
+      addLine('te',`✗ ${esc(d.error||'Query failed')}`);
+      if(d.data?.note) addLine('to',`   ℹ ${esc(d.data.note)}`);
+      if(d.data?.action) addLine('to',`   → ${esc(d.data.action)}`);
+    }
+
+    // Attribution panel
+    const attr=document.getElementById('attr');
+    attr.style.display='block';
+    attr.innerHTML=`
+      <strong style="color:var(--s)">📡 SOURCE:</strong> ${esc(d.source)}<br>
+      <strong style="color:var(--s)">⚖️ LEGAL:</strong> ${esc(d.legal_note)}<br>
+      <strong style="color:var(--s)">🕐 TIME:</strong> ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})} IST
+      ${caseId?`<br><strong style="color:var(--s)">📁 CASE:</strong> #${caseId}`:''}`;
+
+    // Refresh history count
+    loadDashboard();
+
+  }catch(e){
+    stopLoad();
+    addLine('te',`✗ Backend unreachable: ${e.message}`);
+    addLine('tw','→ Ensure uvicorn is running: <span class="th">uvicorn main:app --reload</span>');
+  }
+  addPrompt();
+}
+
+function renderResult(data, type){
+  const skip=new Set(['error','note','action','valid','tip',
+    'dataset_url','sebi_manual','roc_manual','gnews_register',
+    'fallback_tip','fallback_link','register_link']);
+
+  if(type==='geo' && data.results){
+    addLine('tok',`✓ Found ${data.count} location(s) for: <span class="th">${esc(data.query)}</span>`);
+    (data.results||[]).slice(0,3).forEach((r,i)=>{
+      addLine('to',`   [${i+1}] <span class="th">${esc((r.display_name||'').substring(0,65))}${(r.display_name||'').length>65?'…':''}</span>`);
+      addLine('to',`       Lat: <span class="th">${r.lat?.toFixed(4)}</span> · Lon: <span class="th">${r.lon?.toFixed(4)}</span>`);
+    });
+    return;
+  }
+
+  if(type==='news' && data.articles){
+    addLine('tok',`✓ Found ${data.count} article(s) for: <span class="th">${esc(data.query)}</span>`);
+    (data.articles||[]).slice(0,4).forEach((a,i)=>{
+      addLine('to',`   [${i+1}] <span class="th">${esc((a.title||'').substring(0,65))}${(a.title||'').length>65?'…':''}</span>`);
+      if(a.source) addLine('to',`       Source: <span class="tb">${esc(a.source)}</span>`);
+    });
+    return;
+  }
+
+  if(type==='whois' && data.nameservers){
+    Object.entries(data).forEach(([k,v])=>{
+      if(skip.has(k)||v===null||v===undefined||v==='') return;
+      if(Array.isArray(v)) v=[v.join(', ')];
+      const val=String(v);
+      if(val.length<250)
+        addLine('to',`   <span style="color:var(--mid);display:inline-block;width:120px;">${k}</span> <span class="th">${esc(val)}</span>`);
+    });
+    return;
+  }
+
+  // Generic renderer for ip, threat, company
+  Object.entries(data).forEach(([k,v])=>{
+    if(skip.has(k)||v===null||v===undefined||v==='') return;
+    if(typeof v==='object') v=JSON.stringify(v);
+    const val=String(v);
+    if(val.length<300)
+      addLine('to',`   <span style="color:var(--mid);display:inline-block;width:120px;">${k}</span> <span class="th">${esc(val)}</span>`);
+  });
+}
+
+// ── CASES ───────────────────────────────────────────────
+async function loadCases(){
+  if(!token) return;
+  try{
+    const r=await fetch(`${API}/cases`,{headers:hdrs()});
+    if(!r.ok) return;
+    const cases=await r.json();
+    document.getElementById('s-cases').textContent=cases.length;
+    const grid=document.getElementById('cases-grid');
+    if(!cases.length){
+      grid.innerHTML='<div style="grid-column:1/-1" class="empty">No cases yet — create your first investigation</div>';
+      return;
+    }
+    grid.innerHTML=cases.map(c=>`
+      <div class="case-card ${c.priority}" onclick="selectCase(${c.id})">
+        <div class="cc-title">${esc(c.title)}</div>
+        <div class="cc-target">${c.target?'🎯 '+esc(c.target):'No target set'}</div>
+        <div class="cc-meta">
+          <span class="badge ${statusBadge(c.status)}">${c.status.replace('_',' ').toUpperCase()}</span>
+          <span class="badge ${c.priority==='high'?'b-hi':'b-open'}">${c.priority.toUpperCase()}</span>
+          <span class="badge b-open">${c.query_count} QUERIES</span>
+        </div>
+        <div class="cc-date">${fmtDate(c.created_at)}</div>
+      </div>`).join('');
+  }catch(e){ console.error('Cases error:',e); }
+}
+
+function selectCase(id){
+  document.getElementById('q-case').value=id;
+  showPage('search',null);
+  document.getElementById('term').querySelectorAll('.cursor').forEach(c=>c.closest('.tl')?.remove());
+  addLine('tb',`→ Case #${id} selected — queries will be linked to this case`);
+  addPrompt();
+}
+
+async function loadCaseSelect(){
+  if(!token) return;
+  try{
+    const r=await fetch(`${API}/cases`,{headers:hdrs()});
+    if(!r.ok) return;
+    const cases=await r.json();
+    const sel=document.getElementById('q-case');
+    sel.innerHTML='<option value="">No Case</option>'+
+      cases.map(c=>`<option value="${c.id}">#${c.id} — ${esc(c.title.substring(0,28))}</option>`).join('');
+  }catch{}
+}
+
+async function createCase(){
+  const body={
+    title:       document.getElementById('c-title').value.trim(),
+    target:      document.getElementById('c-target').value.trim()||null,
+    priority:    document.getElementById('c-pri').value,
+    description: document.getElementById('c-desc').value.trim()||null,
+    tags:        document.getElementById('c-tags').value.trim()||null,
+  };
+  if(!body.title) return setFMsg('case-msg','Title is required','err');
+  try{
+    const r=await fetch(`${API}/cases`,{method:'POST',headers:hdrs(),body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!r.ok) return setFMsg('case-msg',d.detail||'Failed','err');
+    setFMsg('case-msg',`✓ Case #${d.id} created successfully`,'ok');
+    setTimeout(()=>{ closeModal('m-case'); loadCases(); loadCaseSelect(); },1300);
+  }catch{ setFMsg('case-msg','Backend unreachable','err'); }
+}
+
+// ── FEEDS ───────────────────────────────────────────────
+async function loadFeeds(){
+  if(!token) return;
+  try{
+    const r=await fetch(`${API}/feeds/items?limit=30`,{headers:hdrs()});
+    if(!r.ok) return;
+    const items=await r.json();
+    const certin   = items.filter(i=>i.source==='CERT-In');
+    const boomlive = items.filter(i=>i.source==='BoomLive');
+    renderFeedPanel('feed-certin',   certin,   'CERT-In advisory');
+    renderFeedPanel('feed-boomlive', boomlive, 'fact-check');
+  }catch(e){ console.error('Feeds error:',e); }
+}
+
+function renderFeedPanel(elId, items, emptyLabel){
+  const el=document.getElementById(elId);
+  if(!items.length){
+    el.innerHTML=`<div class="empty">No ${emptyLabel} items yet<br>Click REFRESH FEEDS above</div>`;
+    return;
+  }
+  el.innerHTML=items.map(i=>`
+    <div class="fi" onclick="${i.url?`window.open('${esc(i.url)}','_blank')`:'void(0)'}">
+      <div class="fdot ${sevClass(i.severity)}"></div>
+      <div style="flex:1;min-width:0;">
+        <div class="ft">${esc(i.title.substring(0,90))}${i.title.length>90?'…':''}</div>
+        <div class="fm">
+          <span class="fsrc">${esc(i.source)}</span>
+          <span>${i.published_at?fmtDate(i.published_at):'Recent'}</span>
+          <span>${i.severity.toUpperCase()}</span>
+          ${i.url?'<span style="color:var(--b)">↗ LINK</span>':''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function triggerRefresh(){
+  if(!token){ setAuthMsg('Login first','err'); return; }
+  try{
+    await fetch(`${API}/feeds/refresh`,{method:'POST',headers:hdrs()});
+    document.getElementById('term').querySelectorAll('.cursor').forEach(c=>c.closest('.tl')?.remove());
+    addLine('tok','✓ Feed refresh triggered — new items arrive in ~30 seconds');
+    addPrompt();
+    setTimeout(loadFeeds, 35000);
+  }catch{}
+}
+
+// ── HISTORY ─────────────────────────────────────────────
+async function loadHistory(){
+  if(!token) return;
+  try{
+    const r=await fetch(`${API}/query/history?limit=100`,{headers:hdrs()});
+    if(!r.ok) return;
+    const logs=await r.json();
+    const tbody=document.getElementById('hist-body');
+    if(!logs.length){
+      tbody.innerHTML='<tr><td colspan="7" class="empty">No queries run yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML=logs.map(l=>`
+      <tr>
+        <td style="color:var(--dim);font-family:'Share Tech Mono',monospace;font-size:11px;">#${l.id}</td>
+        <td><span class="method-badge">${esc(l.type.toUpperCase())}</span></td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l.input)}</td>
+        <td style="font-size:12px;color:var(--mid);">${esc(l.source||'—')}</td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);">${l.ms||'—'}</td>
+        <td><span class="badge ${l.success?'b-done':'b-hi'}">${l.success?'OK':'FAIL'}</span></td>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);">${fmtDateTime(l.queried_at)}</td>
+      </tr>`).join('');
+  }catch(e){ console.error('History error:',e); }
+}
+
+// ── MODALS ───────────────────────────────────────────────
+function openModal(id){
+  document.getElementById(id).classList.add('open');
+  document.getElementById(id==='m-reg'?'reg-msg':'case-msg').className='fmsg';
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.mbg').forEach(m=>
+  m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); })
+);
+
+// ── UTILITIES ────────────────────────────────────────────
+function esc(s){
+  return String(s||'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+function sevClass(s){
+  if(s==='critical') return 'cr';
+  if(s==='high')     return 'hi';
+  if(s==='medium')   return 'md';
+  return 'lo';
+}
+function statusBadge(s){
+  if(s==='open')        return 'b-open';
+  if(s==='in_progress') return 'b-prog';
+  return 'b-done';
+}
+function fmtDate(iso){
+  if(!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric'});
+}
+function fmtDateTime(iso){
+  if(!iso) return '—';
+  return new Date(iso).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function setFMsg(id,txt,type){
+  const el=document.getElementById(id);
+  el.className='fmsg '+(type||'');
+  el.textContent=txt;
+}
+
+// ── INIT ─────────────────────────────────────────────────
+autoLogin();
+</script>
+</body>
+</html>
