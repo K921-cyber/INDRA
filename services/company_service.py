@@ -1,3 +1,4 @@
+
 from fetch_utils import safe_fetch
 from config import settings
 
