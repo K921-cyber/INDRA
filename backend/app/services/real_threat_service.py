@@ -97,28 +97,32 @@ COUNTRY_COORDS = {
 }
 
 # Map attack types from threat feed data
-def _classify_threat(data: str) -> str:
-    """Classify a threat indicator into an attack type."""
+def _classify_threat(data: str) -> tuple[str, bool]:
+    """Classify a threat indicator into an attack type.
+    
+    Returns (type_str, was_estimated) where was_estimated is True
+    when no keywords matched and a random fallback was used.
+    """
     data = data.lower()
     if "ransomware" in data or "ransom" in data:
-        return "Ransomware"
+        return "Ransomware", False
     if "phish" in data:
-        return "Phishing"
+        return "Phishing", False
     if "ddos" in data or "dos" in data:
-        return "DDoS"
+        return "DDoS", False
     if "botnet" in data or "c2" in data or "command" in data:
-        return "Botnet C2"
+        return "Botnet C2", False
     if "malware" in data or "trojan" in data or "agent" in data:
-        return "Malware"
+        return "Malware", False
     if "scan" in data or "probe" in data:
-        return "Recon Scan"
+        return "Recon Scan", False
     if "exploit" in data or "cve" in data:
-        return "Exploit"
+        return "Exploit", False
     if "spam" in data:
-        return "Spam Campaign"
+        return "Spam Campaign", False
     if "brute" in data or "credential" in data:
-        return "Brute Force"
-    return random.choice(["Recon Scan", "Malware", "Phishing", "Probe"])
+        return "Brute Force", False
+    return random.choice(["Recon Scan", "Malware", "Phishing", "Probe"]), True
 
 
 class RealThreatService:
@@ -199,7 +203,7 @@ class RealThreatService:
                         malware_family = row[5].strip() if len(row) > 5 else ""
 
                         # Classify human-readable attack type from the threat_type field
-                        attack_type = _classify_threat(threat_type + " " + description)
+                        attack_type, type_estimated = _classify_threat(threat_type + " " + description)
 
                         results.append({
                             "ip": ip,
@@ -208,6 +212,7 @@ class RealThreatService:
                             "malware": malware_family,    # e.g. "win.nanocore", "js.clearfake"
                             "attack_type": attack_type,   # human-readable: "Botnet C2", "Malware"
                             "description": description[:100] if description else "",
+                            "type_estimated": type_estimated,  # True if no keywords matched
                         })
                         if len(results) >= 100:
                             break
@@ -432,7 +437,11 @@ class RealThreatService:
             return random.choice(INDIAN_CITIES)
 
     def _ip_to_attack_vector(self, ip: str, geo: Dict) -> Optional[Dict]:
-        """Convert a geo-located IP into an attack vector event using real threat data."""
+        """Convert a geo-located IP into an attack vector event using real threat data.
+        
+        Returns a dict with a ``note`` field that discloses which parts are
+        real vs. statistically modeled for full transparency.
+        """
         country = geo.get("country", "Unknown")
         coords = COUNTRY_COORDS.get(country)
         if not coords:
@@ -447,6 +456,14 @@ class RealThreatService:
         source = meta.get("source", "Unknown")
         malware = meta.get("malware", "")
         ipsum_score = meta.get("score", 0)
+        
+        # Track which parts are estimated for the disclosure note
+        notes = []
+        
+        # Detect if attack type was a fallback (randomly guessed, no keywords matched)
+        if meta.get("type_estimated", False):
+            attack_type = f"Estimated: {attack_type}"
+            notes.append("attack type estimated from limited feed metadata")
 
         # --- REAL SEVERITY from IPsum blacklist score ---
         if ipsum_score >= 5:
@@ -464,11 +481,13 @@ class RealThreatService:
                     ["critical", "medium", "safe"],
                     weights=[40, 40, 20]
                 )[0]
+                notes.append("severity estimated from source credibility weighting")
             else:
                 severity = random.choices(
                     ["critical", "medium", "safe"],
                     weights=[25, 50, 25]
                 )[0]
+                notes.append("severity estimated (no blacklist score available)")
 
         return {
             "type": "attack_vector",
@@ -487,6 +506,8 @@ class RealThreatService:
             "source": source,
             "malware": malware,
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "modeledTarget": True,  # Target city is statistically assigned
+            "note": "; ".join(notes) if notes else None,
         }
 
     def get_source_health(self) -> Dict[str, Dict]:
@@ -537,6 +558,7 @@ class RealThreatService:
                                         "attack_type": entry.get("attack_type", "Probe"),
                                         "malware": entry.get("malware", ""),
                                         "score": entry.get("score", 0),
+                                        "type_estimated": entry.get("type_estimated", False),
                                     }
                                 all_ips.append(ip)
 

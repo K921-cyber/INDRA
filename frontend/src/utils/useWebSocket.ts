@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
+import { getWebSocketBase } from './wsUtils';
 
 export interface WebSocketStartMessage {
   type: 'start';
@@ -40,22 +41,11 @@ export type WebSocketMessage =
   | WebSocketStartMessage
   | WebSocketResultMessage
   | WebSocketCompleteMessage
-  | WebSocketErrorMessage;
-
-interface UseWebSocketOptions {
+  | WebSocketErrorMessage;interface UseWebSocketOptions {
   onStart?: (msg: WebSocketStartMessage) => void;
   onResult?: (msg: WebSocketResultMessage) => void;
   onComplete?: (msg: WebSocketCompleteMessage) => void;
   onError?: (msg: WebSocketErrorMessage) => void;
-}
-
-/**
- * Build a WebSocket URL based on the current page protocol and host.
- * Works in both development (Vite proxy) and production (Nginx proxy).
- */
-function getWebSocketBase(): string {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}`;
 }
 
 /**

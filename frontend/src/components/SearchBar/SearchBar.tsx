@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useApp } from '../../store/AppContext';
-import { detectSearchType } from '../../utils/mockData';
+import { detectSearchType } from '../../utils/detectSearchType';
 import { SearchType } from '../../types';
 import { SearchIcon } from '../Icons/Icons';
 
@@ -49,6 +49,7 @@ export default function SearchBar() {
           <SearchIcon size={15} />
         </span>
         <input
+          id="search-input"
           className="search-input"
           type="text"
           placeholder="Search domain, IP, email, phone, or name..."

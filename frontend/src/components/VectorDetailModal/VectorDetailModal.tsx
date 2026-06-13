@@ -3,7 +3,7 @@ import { AttackVector } from '../../types';
 
 // ==================== VectorLike Type ====================
 
-export type VectorLike = Pick<AttackVector, 'id' | 'from' | 'fromLat' | 'fromLng' | 'to' | 'toLat' | 'toLng' | 'attackType' | 'severity' | 'sourceIp' | 'isp' | 'org' | 'source' | 'malware'>;
+export type VectorLike = Pick<AttackVector, 'id' | 'from' | 'fromLat' | 'fromLng' | 'to' | 'toLat' | 'toLng' | 'attackType' | 'severity' | 'sourceIp' | 'isp' | 'org' | 'source' | 'malware'> & { modeledTarget?: boolean; note?: string | null };
 
 // ==================== Country Flag Mapping ====================
 
@@ -40,9 +40,27 @@ export function VectorDetailModal({ vector, onClose }: { vector: VectorLike | nu
   };
 
   const reportUrls = {
-    abuseCh: vector.sourceIp ? `https://threatfox.abuse.ch/browse.php?search=${vector.sourceIp}` : '#',
-    certIn: 'https://www.cert-in.org.in/reporting',
-    alienVault: vector.sourceIp ? `https://otx.alienvault.com/browse/global/pulses?q=${vector.sourceIp}` : '#',
+    abuseIpdb: vector.sourceIp ? `https://www.abuseipdb.com/check/${vector.sourceIp}` : '#',
+    certIn: 'mailto:incident@cert-in.org.in?subject=' + encodeURIComponent('Cybersecurity Incident Report - Malicious IP ' + (vector.sourceIp || '')) + '&body=' + encodeURIComponent(
+      '=== CERT-In Incident Report ===\n' +
+      '\n--- Incident Details ---' +
+      '\nMalicious IP: ' + (vector.sourceIp || 'N/A') +
+      '\nAttack Type: ' + (vector.attackType || 'N/A') +
+      '\nSeverity: ' + (vector.severity || 'N/A').toUpperCase() +
+      '\nOrigin Country: ' + (vector.from || 'N/A') +
+      '\nTarget (India): ' + (vector.to || 'N/A') +
+      '\nSource Feed: ' + (vector.source || 'N/A') +
+      '\nMalware: ' + (vector.malware || 'N/A') +
+      '\nISP: ' + (vector.isp || 'N/A') +
+      '\nOrganization: ' + (vector.org || 'N/A') +
+      '\nVector ID: ' + (vector.id || 'N/A') +
+      '\n\n--- Threat Intelligence Context ---' +
+      '\nThis IP was flagged by ' + (vector.source || 'a threat intelligence feed') + ' as participating in ' + (vector.attackType || 'malicious') + ' activity targeting Indian infrastructure.' +
+      '\n\n--- Reporter Info ---' +
+      '\nReported via: TRINETRA OSINT Intelligence Dashboard' +
+      '\n\n(Please attach any additional logs, timestamps, and affected system details)'
+    ),
+    alienVault: vector.sourceIp ? `https://otx.alienvault.com/indicator/ip/${vector.sourceIp}` : '#',
   };
 
   return (
@@ -142,14 +160,29 @@ export function VectorDetailModal({ vector, onClose }: { vector: VectorLike | nu
             )}
           </div>
 
-          {/* Target City Note */}
-          <div className="vd-card" style={{ borderColor: 'rgba(234, 179, 8, 0.15)', background: 'rgba(234, 179, 8, 0.02)' }}>
-            <div className="vd-card-header">⚠️ DATA NOTE</div>
-            <p style={{ fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
-              The source IP and geo-location are <strong style={{color:'var(--accent-green)'}}>real</strong> (from {vector.source || 'threat intel feeds'}).
-              The attack type and severity are based on real feed classifications. The target city is assigned
-              for visualization purposes — actual victim data is not available from these feeds.
-            </p>
+          {/* Data Transparency Note */}
+          <div className="vd-card" style={{ borderLeft: '3px solid var(--accent-yellow)', background: 'rgba(234, 179, 8, 0.02)' }}>
+            <div className="vd-card-header">🔍 DATA TRANSPARENCY</div>
+            <div style={{ fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <div style={{ display:'flex', gap:8, marginBottom:4 }}>
+                <span style={{ color:'var(--accent-green)', fontWeight:600 }}>✅ Source IP</span>
+                <span style={{ color:'var(--text-muted)' }}>Real (from {vector.source || 'threat feed'})</span>
+              </div>
+              <div style={{ display:'flex', gap:8, marginBottom:4 }}>
+                <span style={{ color:'var(--accent-green)', fontWeight:600 }}>✅ Geo-location</span>
+                <span style={{ color:'var(--text-muted)' }}>Real (from ip-api.com)</span>
+              </div>
+              <div style={{ display:'flex', gap:8, marginBottom:4 }}>
+                <span style={{ color:'var(--accent-yellow)', fontWeight:600 }}>⚠️ Target city</span>
+                <span style={{ color:'var(--text-muted)' }}>Statistically modeled based on NCRB crime data</span>
+              </div>
+              {vector.note && (
+                <div style={{ display:'flex', gap:8, marginBottom:4 }}>
+                  <span style={{ color:'var(--accent-yellow)', fontWeight:600 }}>⚠️ {vector.note.includes('severity') ? 'Severity' : 'Attack type'}</span>
+                  <span style={{ color:'var(--text-muted)' }}>{vector.note}</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Report Actions */}
@@ -157,11 +190,11 @@ export function VectorDetailModal({ vector, onClose }: { vector: VectorLike | nu
             <div className="vd-card-header">REPORT THIS THREAT</div>
             <p className="vd-actions-desc">Submit this malicious IP to threat intelligence platforms:</p>
             <div className="vd-actions-grid">
-              <a href={reportUrls.abuseCh} target="_blank" rel="noopener noreferrer" className={`vd-action-btn ${!vector.sourceIp ? 'disabled' : ''}`}>
-                <span className="vd-action-icon">🦊</span>
+              <a href={reportUrls.abuseIpdb} target="_blank" rel="noopener noreferrer" className={`vd-action-btn ${!vector.sourceIp ? 'disabled' : ''}`}>
+                <span className="vd-action-icon">🛡️</span>
                 <div className="vd-action-text">
-                  <span className="vd-action-name">Abuse.ch ThreatFox</span>
-                  <span className="vd-action-desc">Submit to malware IOC database</span>
+                  <span className="vd-action-name">AbuseIPDB</span>
+                  <span className="vd-action-desc">Check IP reputation & report abuse</span>
                 </div>
               </a>
               <a href={reportUrls.alienVault} target="_blank" rel="noopener noreferrer" className={`vd-action-btn ${!vector.sourceIp ? 'disabled' : ''}`}>
@@ -171,11 +204,11 @@ export function VectorDetailModal({ vector, onClose }: { vector: VectorLike | nu
                   <span className="vd-action-desc">Open Threat Exchange pulse</span>
                 </div>
               </a>
-              <a href={reportUrls.certIn} target="_blank" rel="noopener noreferrer" className="vd-action-btn">
+              <a href={reportUrls.certIn} className={`vd-action-btn ${!vector.sourceIp ? 'disabled' : ''}`}>
                 <span className="vd-action-icon">🇮🇳</span>
                 <div className="vd-action-text">
-                  <span className="vd-action-name">CERT-In</span>
-                  <span className="vd-action-desc">Indian CERT reporting portal</span>
+                  <span className="vd-action-name">CERT-In (Email Report)</span>
+                  <span className="vd-action-desc">Opens email to incident@cert-in.org.in with pre-filled details</span>
                 </div>
               </a>
               <button className="vd-action-btn vd-action-copy" onClick={() => copyToClipboard(JSON.stringify({

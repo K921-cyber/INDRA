@@ -80,6 +80,7 @@ def _get_ncrb_city_data():
             "risk": risk,
             "assetCount": asset_count,
             "activeThreats": active_threats,
+            "note": "Active threat count is estimated based on NCRB crime statistics",
         })
     
     return result
@@ -159,13 +160,14 @@ class ThreatFeedService:
                     for v in batch:
                         await self._broadcast(v)
 
-                # --- Broadcast 1 news headline every cycle ---
+                # --- Broadcast 1 news headline per cycle, wrapping around when exhausted ---
                 news = real_news_service.get_latest(50)
                 if news:
-                    for i in range(last_news_index, min(len(news), last_news_index + 1)):
-                        if i < len(news):
-                            await self._broadcast(news[i])
-                    last_news_index = min(len(news), last_news_index + 1)
+                    # Reset index if we've broadcast all available news
+                    if last_news_index >= len(news):
+                        last_news_index = 0
+                    await self._broadcast(news[last_news_index])
+                    last_news_index += 1
 
                 # Throttled interval: 8-12 seconds (was 2-5)
                 await asyncio.sleep(random.uniform(8.0, 12.0))

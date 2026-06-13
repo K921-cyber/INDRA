@@ -67,15 +67,15 @@ class TestCreateWatch:
         assert data["webhook_url"] == "https://hooks.example.com/w"
         assert data["email"] == "admin@example.com"
 
-    def test_create_with_nonexistent_domain_assigns_type(self, client):
-        """A gibberish target is auto-detected as 'name' and created successfully."""
+    def test_create_rejects_forbidden_chars(self, client):
+        """A target with shell metacharacters is rejected with 400."""
         resp = client.post(
             "/api/watches",
             json={"target": "!@#$%^&*()"},
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 400
         data = resp.json()
-        assert data["target_type"] == "name"
+        assert "forbidden" in data.get("detail", {}).get("error", str(data)).lower()
 
     def test_create_validates_required_target(self, client):
         """Omitting the required 'target' field returns 422."""

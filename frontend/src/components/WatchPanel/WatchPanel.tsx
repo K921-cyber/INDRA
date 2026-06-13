@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, WatchResponse, AlertResponse, PluginInfo } from '../../utils/api';
-import { detectSearchType } from '../../utils/mockData';
+import { detectSearchType } from '../../utils/detectSearchType';
 import { SearchType } from '../../types';
-import { EyeIcon, RefreshIcon, BellIcon, TrashIcon, PlayIcon, PauseIcon } from '../Icons/Icons';
+import { EyeIcon, RefreshIcon, BellIcon, TrashIcon, PlayIcon, PauseIcon, DownloadIcon } from '../Icons/Icons';
+import FullReportView from '../FullReportView/FullReportView';
 
 const SORTED_INTERVALS = [
   { label: 'Every 5 min', seconds: 300 },
@@ -405,6 +406,7 @@ export default function WatchPanel() {
   const [alerts, setAlerts] = useState<AlertResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showReport, setShowReport] = useState(false);
 
   const refresh = useCallback(async () => {
     setError('');
@@ -429,13 +431,18 @@ export default function WatchPanel() {
 
   return (
     <div className="watch-panel">
-      <div className="watch-panel-header">
-        <h2><EyeIcon size={20} /> Watch & Monitoring</h2>
+      <div className="watch-panel-header">          <h2><EyeIcon size={20} /> Watch & Monitoring</h2>
         <span className="watch-panel-subtitle">
           {loading ? 'Loading...' : `${activeWatches.length} active · ${inactiveWatches.length} paused`}
-        </span>          <button className="watch-refresh-btn" onClick={refresh} title="Refresh">
-          <RefreshIcon size={14} />
-        </button>
+        </span>
+        <div className="watch-panel-actions">
+          <button className="watch-report-btn" onClick={() => setShowReport(true)} title="Generate full intelligence report">
+            <DownloadIcon size={12} /> Report
+          </button>
+          <button className="watch-refresh-btn" onClick={refresh} title="Refresh">
+            <RefreshIcon size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Create form */}
@@ -486,6 +493,9 @@ export default function WatchPanel() {
           </div>
         </div>
       )}
+
+      {/* Full Report Overlay */}
+      {showReport && <FullReportView onClose={() => setShowReport(false)} />}
     </div>
   );
 }

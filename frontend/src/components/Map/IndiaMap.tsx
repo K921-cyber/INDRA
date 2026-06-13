@@ -44,9 +44,22 @@ const COUNTRY_FLAGS: Record<string, string> = {
   'Unknown': '🏴',
 };
 
+// Source feed color mapping
+const FEED_COLORS: Record<string, string> = {
+  'ThreatFox': '#8b5cf6',
+  'Feodo': '#06b6d4',
+  'IPsum': '#5a6a80',
+};
+
+const FEED_LABELS: Record<string, string> = {
+  'ThreatFox': 'TF',
+  'Feodo': 'FD',
+  'IPsum': 'IP',
+};
+
 // ==================== City Marker ====================
 
-function CityMarker({ city }: { city: CityData }) {
+function CityMarker({ city }: { city: CityData & { note?: string } }) {
   const { dispatch } = useApp();
   const color = riskColors[city.risk];
   const fillColor = riskFillColors[city.risk];
@@ -81,7 +94,154 @@ function CityMarker({ city }: { city: CityData }) {
           </span>
           <div className="stats">
             <div>Assets: {city.assetCount.toLocaleString()}</div>
-            <div>Active Threats: {city.activeThreats}</div>
+            <div>Active Threats: {city.activeThreats} <span style={{ fontSize:9, color:'var(--text-muted)' }}>(estimated)</span></div>
+          </div>
+        </div>
+      </Popup>
+    </CircleMarker>
+  );
+}
+
+// ==================== Destination Pins (Attack Target Markers) ====================
+
+function DestinationPins({ vectors, onSelectVector }: { vectors: VectorLike[]; onSelectVector?: (v: VectorLike) => void }) {
+  const destinationGroups = React.useMemo(() => {
+    const groups = new Map<string, { vectors: VectorLike[]; lat: number; lng: number; severity: string }>();
+    vectors.forEach(v => {
+      const key = v.to;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.vectors.push(v);
+        if (v.severity === 'critical' || (v.severity === 'medium' && existing.severity !== 'critical')) {
+          existing.severity = v.severity;
+        }
+      } else {
+        groups.set(key, {
+          vectors: [v],
+          lat: v.toLat,
+          lng: v.toLng,
+          severity: v.severity,
+        });
+      }
+    });
+    return Array.from(groups.entries()).map(([city, data]) => ({ city, ...data }));
+  }, [vectors]);
+
+  if (vectors.length === 0 || destinationGroups.length === 0) return null;
+
+  return (
+    <>
+      {destinationGroups.map(dg => (          <DestinationPin
+            key={dg.city}
+            city={dg.city}
+            lat={dg.lat}
+            lng={dg.lng}
+            count={dg.vectors.length}
+            severity={dg.severity as RiskLevel}
+            vectors={dg.vectors}
+          />
+      ))}
+    </>
+  );
+}
+
+function DestinationPin({ city, lat, lng, count, severity, vectors }: {
+  city: string;
+  lat: number;
+  lng: number;
+  count: number;
+  severity: RiskLevel;
+  vectors: VectorLike[];
+}) {
+  // Skip rendering if coordinates are invalid (MUST be before any hooks for Rules of Hooks)
+  if (!lat && !lng) return null;
+
+  const color = riskColors[severity];
+  const [isPulsing, setIsPulsing] = useState(false);
+
+  // Pulse for critical destinations
+  useEffect(() => {
+    if (severity !== 'critical') return;
+    const interval = setInterval(() => {
+      setIsPulsing(p => !p);
+    }, 800);
+    return () => clearInterval(interval);
+  }, [severity]);
+
+  // Size based on count and severity
+  const baseRadius = severity === 'critical' ? 12 : 9;
+  const radius = baseRadius + Math.min(count - 1, 5) * 1.5;
+
+  // Group real data: origin countries and attack types
+  const originCountries = [...new Set(vectors.map(v => v.from))];
+  const attackTypes = [...new Set(vectors.map(v => v.attackType))];
+  const feeds = [...new Set(vectors.map(v => v.source).filter(Boolean))];
+  const totalCritical = vectors.filter(v => v.severity === 'critical').length;
+
+  return (
+    <CircleMarker
+      center={[lat, lng]}
+      radius={radius}
+      pathOptions={{
+        color,
+        fillColor: severity === 'critical'
+          ? (isPulsing ? '#ef444480' : color)
+          : color,
+        fillOpacity: severity === 'critical' ? (isPulsing ? 0.9 : 0.7) : 0.7,
+        weight: count > 1 ? 3 : 2,
+      }}
+    >
+      <Popup>
+        <div className="city-popup" style={{minWidth: 200, padding: 4}}>
+          {/* Real data: feed acknowledgement */}
+          <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:6, justifyContent:'center'}}>
+            <span style={{fontSize:14}}>🛡️</span>
+            <span style={{fontSize:10, fontWeight:700, color:'var(--accent-cyan)', letterSpacing:1}}>THREAT FEED</span>
+          </div>
+
+          {/* Live attack count — the only metric that matters here */}
+          <div style={{fontSize:22, fontWeight:800, color, fontFamily:'JetBrains Mono, monospace', textAlign:'center', marginBottom:4}}>
+            {count}
+          </div>
+          <div style={{fontSize:10, color:'var(--text-secondary)', textAlign:'center', marginBottom:8, fontWeight:600}}>
+            Live Threat Vector{count > 1 ? 's' : ''} Detected
+            {totalCritical > 0 && (
+              <span style={{color:'var(--accent-red)'}}> · {totalCritical} Critical</span>
+            )}
+          </div>
+
+          {/* Real data: origin + attack types */}
+          <div style={{background:'rgba(8,12,24,0.5)', borderRadius:6, padding:'6px 8px', marginBottom:6}}>
+            {originCountries.length > 0 && (
+              <div style={{display:'flex', alignItems:'center', gap:4, marginBottom:3, fontSize:10}}>
+                <span style={{color:'var(--text-muted)', fontWeight:600}}>Origins:</span>
+                <span style={{color:'var(--text-primary)'}}>
+                  {originCountries.map(c => `${COUNTRY_FLAGS[c] || '🏴'} ${c}`).join(', ')}
+                </span>
+              </div>
+            )}
+            {attackTypes.length > 0 && (
+              <div style={{display:'flex', alignItems:'center', gap:4, fontSize:10}}>
+                <span style={{color:'var(--text-muted)', fontWeight:600}}>Types:</span>
+                <span style={{color:'var(--text-secondary)'}}>{attackTypes.join(' · ')}</span>
+              </div>
+            )}
+            {feeds.length > 0 && (
+              <div style={{display:'flex', alignItems:'center', gap:4, marginTop:3, fontSize:10}}>
+                <span style={{color:'var(--text-muted)', fontWeight:600}}>Feeds:</span>
+                <span style={{color:'var(--text-secondary)'}}>{feeds.join(', ')}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Data transparency + reporting guidance */}
+          <div style={{fontSize:9, color:'var(--text-muted)', lineHeight:1.5, borderTop:'1px solid var(--border)', paddingTop:6, marginTop:4}}>
+            <div style={{marginBottom:4}}>
+              ⚠️ This location is statistically modeled — we only know the real attack types and source IPs from threat feeds.
+            </div>
+            <div style={{color:'var(--accent-yellow)', fontWeight:600}}>
+              📋 To report a threat, use the <strong>Threat Intelligence</strong> panel (bottom-right of map) or <strong>Live Feed</strong> tab for source-based intelligence.
+            </div>
           </div>
         </div>
       </Popup>
@@ -507,18 +667,7 @@ function OriginSummary({ vectors }: { vectors: VectorLike[] }) {
   );
 }
 
-// Source feed color mapping
-const FEED_COLORS: Record<string, string> = {
-  'ThreatFox': '#8b5cf6',
-  'Feodo': '#06b6d4',
-  'IPsum': '#5a6a80',
-};
 
-const FEED_LABELS: Record<string, string> = {
-  'ThreatFox': 'TF',
-  'Feodo': 'FD',
-  'IPsum': 'IP',
-};
 
 // ==================== Attack Vector Table (Detailed) ====================
 
@@ -690,6 +839,11 @@ export default function IndiaMap() {
         {threatState.cities.map(city => (
           <CityMarker key={city.name} city={city as CityData} />
         ))}
+
+        {/* Destination pins — show approximated target cities for active attack vectors */}
+        {showAttacks && (
+          <DestinationPins vectors={activeAttackVectors} onSelectVector={setSelectedVector} />
+        )}
       </MapContainer>
 
       {/* Connection status bar (top-center) */}

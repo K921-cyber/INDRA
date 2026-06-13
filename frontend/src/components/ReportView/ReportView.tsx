@@ -193,6 +193,7 @@ export default function ReportView() {
           <div className="report-search no-print">
             <SearchIcon size={11} color="var(--text-muted)" />
             <input
+              id="report-search-input"
               className="report-search-input"
               type="text"
               placeholder="Search within results..."

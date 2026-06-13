@@ -1,6 +1,19 @@
 from app.plugins.base import OSINTPlugin, PluginResult
 import asyncio
+import re
 import socket
+
+
+# Regex to validate an IPv4 address
+_IPV4_RE = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$")
+
+
+def _is_valid_ip(target: str) -> bool:
+    """Check if target is a valid IPv4 address (all octets 0-255)."""
+    m = _IPV4_RE.match(target)
+    if not m:
+        return False
+    return all(0 <= int(m.group(i)) <= 255 for i in range(1, 5))
 
 
 class PortScannerPlugin(OSINTPlugin):
@@ -26,9 +39,9 @@ class PortScannerPlugin(OSINTPlugin):
 
     async def run(self, target: str) -> PluginResult:
         try:
-            # Resolve domain to IP
+            # Resolve domain to IP if target is not a valid IPv4 address
             ip = target
-            if not target.replace(".", "").isdigit():
+            if not _is_valid_ip(target):
                 loop = asyncio.get_event_loop()
                 ip = await loop.run_in_executor(None, lambda: socket.gethostbyname(target))
 

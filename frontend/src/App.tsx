@@ -10,6 +10,7 @@ import LiveFeed from './components/LiveFeed/LiveFeed';
 import ToastNotification from './components/ToastNotification/ToastNotification';
 import DashboardStats from './components/DashboardStats/DashboardStats';
 import ScanProgress from './components/ScanProgress/ScanProgress';
+import TargetIntelPanel from './components/TargetIntelPanel/TargetIntelPanel';
 import { ShieldIcon, SearchIcon, EyeIcon, BoltIcon } from './components/Icons/Icons';
 
 export default function App() {
@@ -72,7 +73,12 @@ export default function App() {
       <div className="main-content">
         {state.activeTab === 'search' ? (
           <>
-            {!isIdle && <Sidebar />}
+            {!isIdle && (
+              <div className="search-sidebar-wrapper">
+                <Sidebar />
+                <TargetIntelPanel />
+              </div>
+            )}
             <IndiaMap />
             <ReportView />
             <GraphView />

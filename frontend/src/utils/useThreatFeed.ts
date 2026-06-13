@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
+import { getWebSocketBase } from './wsUtils';
 
 // ==================== Types ====================
 
@@ -19,6 +20,8 @@ export interface ThreatAttackVector {
   source?: string;      // Which threat feed: ThreatFox, Feodo, IPsum
   malware?: string;     // Real malware family name from feed
   timestamp: string;
+  modeledTarget?: boolean;  // true = target city is statistically modeled
+  note?: string | null;     // Disclosure about estimated/simulated fields
 }
 
 export interface ThreatTickerEvent {
@@ -44,6 +47,7 @@ export interface ThreatInitialState {
     risk: string;
     assetCount: number;
     activeThreats: number;
+    note?: string;  // Disclosure about estimated data
   }>;
   timestamp: string;
 }
@@ -60,11 +64,6 @@ interface UseThreatFeedOptions {
   onError?: (error: Event) => void;
 }
 
-function getWebSocketBase(): string {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}`;
-}
-
 /**
  * Custom hook that manages a WebSocket connection to the live threat feed.
  *
@@ -75,6 +74,8 @@ export function useThreatFeed(options: UseThreatFeedOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const optionsRef = useRef(options);
+  const disconnectedRef = useRef(false);
+  const retryCountRef = useRef(0);
   optionsRef.current = options;
 
   const cleanup = useCallback(() => {
@@ -88,19 +89,27 @@ export function useThreatFeed(options: UseThreatFeedOptions) {
     }
   }, []);
 
-  // Cleanup on unmount
+  // Cleanup on unmount — use disconnect() to prevent reconnect loop
   useEffect(() => {
-    return () => cleanup();
+    return () => {
+      disconnectedRef.current = true;
+      cleanup();
+    };
   }, [cleanup]);
 
   const connect = useCallback(() => {
     cleanup();
+    // Reset disconnected flag so new external connect() calls work
+    // even after an explicit disconnect() or React Strict Mode unmount.
+    // Reconnect prevention is handled by onclose checking disconnectedRef.
+    disconnectedRef.current = false;
 
     const ws = new WebSocket(`${getWebSocketBase()}/ws/threats`);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      // Connected to live threat stream
+      // Connected to live threat stream — reset retry count
+      retryCountRef.current = 0;
     };
 
     ws.onmessage = (event) => {
@@ -124,22 +133,32 @@ export function useThreatFeed(options: UseThreatFeedOptions) {
       }
     };
 
-    ws.onerror = (event) => {
-      console.error('[ThreatFeed] WebSocket error:', event);
-      optionsRef.current.onError?.(event);
+    ws.onerror = (_event) => {
+      // Suppress noisy console.error for transient connection failures.
+      // Reconnect is handled in onclose with exponential backoff.
+      // Still fire the callback so ThreatContext can update isConnected.
+      optionsRef.current.onError?.(_event);
     };
 
     ws.onclose = () => {
-      // Disconnected, reconnecting in 3s...
+      // Ignore stale onclose events from previous WebSocket instances
+      if (wsRef.current !== ws) return;
       wsRef.current = null;
-      // Auto-reconnect after 3 seconds
-      reconnectTimerRef.current = setTimeout(() => {
-        connect();
-      }, 3000);
+      // Only auto-reconnect if we haven't been explicitly disconnected
+      if (!disconnectedRef.current) {
+        // Exponential backoff: 500ms, 1s, 2s, 4s, 8s, then cap at 8s
+        const delay = Math.min(500 * Math.pow(2, retryCountRef.current), 8000);
+        retryCountRef.current += 1;
+        reconnectTimerRef.current = setTimeout(() => {
+          connect();
+        }, delay);
+      }
     };
   }, [cleanup]);
 
   const disconnect = useCallback(() => {
+    // Mark as intentionally disconnected first so onclose won't reconnect
+    disconnectedRef.current = true;
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;

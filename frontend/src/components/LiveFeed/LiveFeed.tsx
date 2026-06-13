@@ -140,6 +140,11 @@ export default function LiveFeed() {
                     <ClockIcon size={10} color="var(--text-muted)" />
                     {getTimestamp(av)}
                   </div>
+                  {av.modeledTarget && (
+                    <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 6, padding: '3px 6px', borderRadius: 4, background: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.12)', display: 'inline-block' }}>
+                      🎯 Target estimated from statistical crime data
+                    </div>
+                  )}
                 </div>
               );
             })}

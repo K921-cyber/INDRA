@@ -1,5 +1,4 @@
 // ==================== Detection Logic ====================
-// Kept as a utility function — not mock data, just pattern matching
 
 export function detectSearchType(query: string) {
   const ipRegex = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;

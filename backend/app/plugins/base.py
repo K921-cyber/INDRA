@@ -16,20 +16,23 @@ class PluginResult:
         gui_data: Optional[dict] = None,
         terminal_data: Optional[str] = None,
         error: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
     ):
         self.plugin_id = plugin_id
         self.plugin_name = plugin_name
         self.category = category
         self.target = target
         self.status = status
-        self.timestamp = datetime.now(timezone.utc)
+        # Allow injecting a timestamp (e.g. when reconstructing from DB)
+        # so freshness reflects the real age of the data.
+        self.timestamp = timestamp if timestamp is not None else datetime.now(timezone.utc)
         self.freshness = self._compute_freshness()
         self.gui_data = gui_data or {}
         self.terminal_data = terminal_data or ""
         self.error = error
 
     def _compute_freshness(self) -> str:
-        """Compute freshness label based on age."""
+        """Compute freshness label based on age of the timestamp."""
         age_seconds = (datetime.now(timezone.utc) - self.timestamp).total_seconds()
         if age_seconds < 60:
             return "moments"

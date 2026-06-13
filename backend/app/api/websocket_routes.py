@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.services.orchestrator import OrchestratorService
@@ -6,7 +5,6 @@ from app.core.detector import AutoDetect
 from app.core.sanitizer import sanitize_target, InputValidationError
 from app.core.api_key_auth import validate_ws_message_key
 from app.core.config import settings
-from app.services.threat_feed import threat_feed
 
 logger = logging.getLogger("trinetra.ws")
 
@@ -18,41 +16,6 @@ async def _run_scan(websocket: WebSocket, target: str, target_type: str) -> None
     """Stream scan results for a target over WebSocket."""
     async for message in orchestrator.run_all_stream(target, target_type):
         await websocket.send_json(message)
-
-
-@router.websocket("/ws/threats")
-async def websocket_threats(websocket: WebSocket):
-    """Stream real-time threat intelligence events over WebSocket.
-
-    Sends:
-        - initial_state: batch of recent events and city data on connect
-        - attack_vector: individual live attack vector
-        - threat_event: SOC/analyst threat alert
-        - news_event: cyber news headline (with optional url)
-    """
-    await websocket.accept()
-    queue: asyncio.Queue | None = None
-
-    try:
-        # Send initial state (recent events + city data)
-        initial = threat_feed.get_initial_state()
-        await websocket.send_json(initial)
-
-        # Subscribe to live feed
-        queue = threat_feed.subscribe()
-
-        while True:
-            event = await queue.get()
-            try:
-                await websocket.send_json(event)
-            except WebSocketDisconnect:
-                break
-
-    except WebSocketDisconnect:
-        pass
-    finally:
-        if queue is not None:
-            threat_feed.unsubscribe(queue)
 
 
 @router.websocket("/ws/search")
