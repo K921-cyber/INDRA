@@ -1,1 +1,11 @@
 
+node_modules/
+dist/
+.git/
+.gitignore
+*.md
+.env
+.env.*
+.vite/
+.prettierrc
+eslint*
