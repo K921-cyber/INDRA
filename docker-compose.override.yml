@@ -1,0 +1,14 @@
+# ==================== Dev Overrides ====================
+# Auto-merged when running: docker compose up
+# For production, use: docker compose -f docker-compose.yml up
+services:
+  # Dev: bind mount enables hot-reload on code changes
+  backend:
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Dev: bind mount ensures worker picks up code changes
+  taskiq-worker:
+    volumes:
+      - ./backend:/app

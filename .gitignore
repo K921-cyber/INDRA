@@ -1,0 +1,49 @@
+# ── Environment secrets ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials.json
+*.credentials
+
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+venv/
+.venv/
+
+# ── Node ────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+
+# ── Database files ──────────────────────────────────────────
+*.db
+*.sqlite3
+
+# ── Logs ────────────────────────────────────────────────────
+*.log
+
+# ── IDE / Editor ────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+nul
+*.nul
+# Vite cache
+.vite/
