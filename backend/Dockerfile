@@ -3,10 +3,12 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /build
 
-# Install system deps needed for psycopg2 / asyncpg
+# Install system deps needed for psycopg2 / asyncpg / bcrypt
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
+    libffi-dev \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python dependencies (system-wide install for multi-stage copy)
@@ -18,14 +20,18 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime system deps (just curl for healthcheck)
+# Install runtime system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libffi8 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from builder to system-wide locations
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Ensure bcrypt is available (multi-stage copy can miss compiled extensions)
+RUN pip install --no-cache-dir bcrypt>=4.0.1
 
 # Copy application code
 COPY . .
@@ -33,6 +39,7 @@ COPY . .
 # Create non-root user and set permissions
 RUN addgroup --system --gid 1001 appgroup && \
     adduser --system --uid 1001 --ingroup appgroup --shell /bin/sh appuser && \
+    mkdir -p /app/data && \
     chown -R appuser:appgroup /app
 
 # Switch to non-root user for security

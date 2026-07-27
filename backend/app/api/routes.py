@@ -7,7 +7,7 @@ from app.models.schemas import SearchRequest, SearchResponse, PluginResultData
 from app.services.orchestrator import OrchestratorService
 from app.core.detector import AutoDetect
 from app.core.sanitizer import sanitize_target, validate_target, InputValidationError
-from app.core.api_key_auth import require_api_key, login, logout_token, is_auth_enabled, validate_token, create_user
+from app.core.api_key_auth import require_api_key, login, logout_token, is_auth_enabled, validate_token, create_user, validate_password_strength, change_password, get_username_for_token
 from app.core.config import settings
 import re
 
@@ -51,8 +51,10 @@ async def auth_register(body: dict):
         return {"success": False, "error": "Username must be at least 3 characters.", "auth_enabled": True}
     if not email or "@" not in email:
         return {"success": False, "error": "Valid email address is required.", "auth_enabled": True}
-    if not password or len(password) < 6:
-        return {"success": False, "error": "Password must be at least 6 characters.", "auth_enabled": True}
+    # Validate password strength
+    password_valid, password_error = validate_password_strength(password)
+    if not password_valid:
+        return {"success": False, "error": password_error, "auth_enabled": True}
     if not re.match(r'^[a-zA-Z0-9_-]+$', username):
         return {"success": False, "error": "Username can only contain letters, numbers, underscores, and hyphens.", "auth_enabled": True}
 
@@ -131,6 +133,35 @@ async def auth_logout(_key: str = Depends(require_api_key)):
     if token and logout_token(token):
         return {"success": True, "message": "Logged out successfully."}
     return {"success": True, "message": "Session already expired."}
+
+
+@router.post("/auth/change-password")
+async def auth_change_password(body: dict, _key: str = Depends(require_api_key)):
+    """Change the authenticated user's password.
+
+    Accepts: {"current_password": "...", "new_password": "..."}
+    Requires authentication.
+    """
+    current_password = body.get("current_password", "")
+    new_password = body.get("new_password", "")
+    
+    if not current_password:
+        return {"success": False, "error": "Current password is required."}
+    
+    if not new_password:
+        return {"success": False, "error": "New password is required."}
+    
+    # Get username from token
+    username = get_username_for_token(_key)
+    if not username:
+        return {"success": False, "error": "Invalid session."}
+    
+    success, message = change_password(username, current_password, new_password)
+    
+    if success:
+        return {"success": True, "message": message}
+    
+    return {"success": False, "error": message}
 
 
 @router.get("/target-intel")

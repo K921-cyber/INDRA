@@ -17,13 +17,15 @@
     <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
     <img src="https://img.shields.io/badge/Leaflet-1.9-199900?style=flat-square&logo=leaflet&logoColor=white" alt="Leaflet 1.9"/>
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License"/>
+    <img src="https://img.shields.io/badge/bcrypt-enabled-8A2BE2?style=flat-square" alt="bcrypt"/>
+    <img src="https://img.shields.io/badge/tests-passing-22c55e?style=flat-square" alt="Tests Passing"/>
   </p>
   <br/>
 </div>
 
 > **Search any domain, IP, email, phone, or name — get 360° threat intelligence in seconds.**
 >
-> TRINETRA is an all-in-one OSINT platform built for India. It combines **15 parallel OSINT plugins**, a **live threat feed** powered by real malicious IP data, **automated watch monitoring**, and an **interactive threat map dashboard**.
+> TRINETRA is an all-in-one OSINT platform built for India. It combines **15 parallel OSINT plugins**, a **live threat feed** powered by real malicious IP data, **automated watch monitoring**, an **interactive threat map dashboard**, and an **AI chatbot assistant** — all wrapped in a modern, dark-themed web interface.
 
 <br/>
 
@@ -35,27 +37,9 @@
   <b>👁️ Watch Monitoring</b>&nbsp;&nbsp;·&nbsp;&nbsp;
   <b>📊 Professional Reports</b>&nbsp;&nbsp;·&nbsp;&nbsp;
   <b>🧠 Relationship Graphs</b>&nbsp;&nbsp;·&nbsp;&nbsp;
-  <b>🔐 User Registration</b>
+  <b>🔐 User Registration</b>&nbsp;&nbsp;·&nbsp;&nbsp;
+  <b>🤖 AI Assistant</b>
 </p>
-
-<br/>
-
----
-
-<br/>
-
----
-
-## 🚀 Run This in 60 Seconds
-
-```bash
-git clone <your-repo-url>
-cd trinetra
-cp .env.example .env        # set POSTGRES_PASSWORD inside
-docker compose -p indra2 up -d --build
-```
-
-Then open **http://localhost:3000**, click **Register**, and start searching. Full details in [⚡ Quick Start (Docker)](#-quick-start-docker) below.
 
 <br/>
 
@@ -63,7 +47,7 @@ Then open **http://localhost:3000**, click **Register**, and start searching. Fu
 
 ## 📋 Table of Contents
 
-- [⚡ Quick Start (Docker)](#-quick-start-docker)
+- [🚀 Quick Start (Docker)](#-quick-start-docker)
 - [🛠️ Manual Installation (No Docker)](#️-manual-installation-no-docker)
 - [🎯 What TRINETRA Does](#-what-trinetra-does)
 - [🏗️ Architecture & Workflow](#️-architecture--workflow)
@@ -78,6 +62,7 @@ Then open **http://localhost:3000**, click **Register**, and start searching. Fu
 - [📡 API Reference](#-api-reference)
 - [🗂️ Project Structure](#️-project-structure)
 - [⚙️ Configuration Reference](#️-configuration-reference)
+- [🧪 Testing](#-testing)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
 
@@ -85,7 +70,7 @@ Then open **http://localhost:3000**, click **Register**, and start searching. Fu
 
 ---
 
-## ⚡ Quick Start (Docker)
+## 🚀 Quick Start (Docker)
 
 ### Prerequisites
 
@@ -96,15 +81,15 @@ Then open **http://localhost:3000**, click **Register**, and start searching. Fu
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/trinetra.git
-cd trinetra
+git clone https://github.com/K921-cyber/INDRA.git
+cd INDRA
 
-# (Optional) Copy and customize environment variables
+# Copy and customize environment variables
 cp .env.example .env
 # Edit .env — at minimum set POSTGRES_PASSWORD
 
-# Start all services (project name: indra2)
-docker compose -p indra2 up -d
+# Start all services
+docker compose -p indra2 up -d --build
 ```
 
 ### Access Points
@@ -122,28 +107,6 @@ docker compose -p indra2 up -d
 1. Open [http://localhost:3000](http://localhost:3000)
 2. Click **Register** and create an account (first user becomes admin)
 3. Start searching domains, IPs, emails, phones, or names
-
-### Container Architecture
-
-```
-┌──────────────────────────────────────────────────────┐
-│                   Docker Compose (indra2)              │
-│                                                        │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────┐  │
-│  │ Frontend │  │ Backend  │  │ Worker   │  │ DB   │  │
-│  │ :3000→80 │  │ :8000    │  │ (TaskIQ) │  │:5432 │  │
-│  │  React   │  │ FastAPI  │  │  Async   │  │ PG15 │  │
-│  │  Nginx   │  │ Uvicorn  │  │  Tasks   │  │      │  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──┬───┘  │
-│       └─────────────┴─────────────┴────────────┘      │
-│                         │                             │
-│                    ┌────▼─────┐                       │
-│                    │  Redis   │                       │
-│                    │  :6380   │                       │
-│                    │  Cache   │                       │
-│                    └──────────┘                       │
-└──────────────────────────────────────────────────────┘
-```
 
 ### Useful Docker Commands
 
@@ -206,9 +169,9 @@ npm install
 npx vite --host 0.0.0.0 --port 3000
 ```
 
-### TaskIQ Worker (Optional — only needed if you set `REDIS_URL`)
+### TaskIQ Worker (Optional)
 
-By default in manual mode `REDIS_URL` is empty, so watch re-checks run **inline** inside the backend process automatically — you don't need this step for Watch Monitoring to work. Only run a separate worker if you've deliberately set `REDIS_URL` in `.env` to mimic the production setup:
+By default in manual mode `REDIS_URL` is empty, so watch re-checks run **inline** inside the backend process automatically — you don't need the worker for Watch Monitoring to work. Only run a separate worker if you've deliberately set `REDIS_URL` in `.env`:
 
 ```bash
 cd backend
@@ -266,6 +229,30 @@ Investigating a single domain typically means juggling **multiple separate tools
 ---
 
 ## 🏗️ Architecture & Workflow
+
+### Container Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│                   Docker Compose (indra2)              │
+│                                                        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────┐  │
+│  │ Frontend │  │ Backend  │  │ Worker   │  │ DB   │  │
+│  │ :3000→80 │  │ :8000    │  │ (TaskIQ) │  │:5432 │  │
+│  │  React   │  │ FastAPI  │  │  Async   │  │ PG15 │  │
+│  │  Nginx   │  │ Uvicorn  │  │  Tasks   │  │      │  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──┬───┘  │
+│       └─────────────┴─────────────┴────────────┘      │
+│                         │                             │
+│                    ┌────▼─────┐                       │
+│                    │  Redis   │                       │
+│                    │  :6380   │                       │
+│                    │  Cache   │                       │
+│                    └──────────┘                       │
+└──────────────────────────────────────────────────────┘
+```
+
+### Application Flow
 
 ```
                     ┌──────────────────────────────────────────┐
@@ -341,31 +328,31 @@ Target Query → Input Sanitizer → Auto-Detect Type → 15 Parallel Plugins �
 
 ### Step-by-Step
 
-1. **Input Sanitization** — Validated against maximum length, no control characters, null bytes, or shell metacharacters
+1. **Input Sanitization** — Validated against maximum length (253 chars), no control characters, null bytes, or shell metacharacters
 2. **Auto-Detect Type** — Regex matching for IP, email, domain, phone; falls back to "name"
-3. **Plugin Registry** — Auto-discovers all `OSINTPlugin` subclasses at startup
-4. **Plugin Orchestration** — Fires matching plugins concurrently via `asyncio.gather` with 30s timeout
-5. **WebSocket Streaming** — Results stream back in real-time as they complete
+3. **Plugin Registry** — Auto-discovers all `OSINTPlugin` subclasses at startup (no manual registration needed)
+4. **Plugin Orchestration** — Fires matching plugins concurrently via `asyncio.gather` with configurable timeout
+5. **WebSocket Streaming** — Results stream back in real-time via WebSocket as each plugin completes
 
 ### The 15 OSINT Plugins
 
-| Category | Plugin ID | Name | What It Finds | Input Types |
-|----------|-----------|------|---------------|-------------|
-| **Infrastructure** | `domain-record` | Domain Record | WHOIS registration, registrar info, creation/expiry dates | domain |
-| | `name-servers` | Name Servers | DNS records: A, AAAA, MX, NS, CNAME, TXT, SOA | domain |
-| | `port-scanner` | Port Scanner | Open TCP ports (24 common ports), service identification | domain, ip |
-| | `ssl-health` | SSL Health | Certificate validity, cipher suites, protocol support, grade | domain |
-| | `subdomain-finder` | Subdomain Finder | Subdomains via crt.sh, HackerTarget API, DNS brute-force (185+ prefixes) | domain |
-| | `geo-locator` | Geo Locator | Server location, country, city, ISP, ASN, coordinates | domain, ip |
-| | `http-headers` | HTTP Headers | Security headers (HSTS, CSP, XFO, etc.), server info, cookies | domain |
-| | `tech-fingerprint` | Tech Fingerprint | Web server, frameworks, CMS, Cloudflare detection | domain |
-| **Threat Intel** | `cve-alerts` | CVE Alerts | Known vulnerabilities from NVD API matching target | domain, ip |
-| | `data-leaks` | Data Leaks | Breach data from XposedOrNot, LeakCheck, LeakIX + curated breach DB (70+ India-specific breaches) | domain, email, username |
-| | `document-vault` | Document Vault | Exposed documents, .env, .git/config, backup files on common paths | domain |
-| | `osint-leak` | OSINT Leak | Deep breach search via Leakosint API (email, phone, name, IP, username) | email, phone, username, name, ip |
-| **Advanced** | `deep-search` | Deep Search | Google dorking queries for sensitive files, admin panels, backups | domain, name |
-| | `live-feed` | Live Feed | Real-time cyber news from RSS feeds (The Hacker News) | domain, ip, name |
-| | `surface-scan` | Surface Scan | Aggregated risk score, attack surface analysis, key port scanning | domain, ip |
+| # | Plugin ID | Name | Category | What It Finds | Input Types |
+|---|-----------|------|----------|---------------|-------------|
+| 1 | `domain-record` | Domain Record | Infrastructure | WHOIS registration, registrar info, creation/expiry dates | domain |
+| 2 | `name-servers` | Name Servers | Infrastructure | DNS records: A, AAAA, MX, NS, CNAME, TXT, SOA | domain |
+| 3 | `port-scanner` | Port Scanner | Infrastructure | Open TCP ports (24 common ports), service identification | domain, ip |
+| 4 | `ssl-health` | SSL Health | Infrastructure | Certificate validity, cipher suites, protocol support, grade | domain |
+| 5 | `subdomain-finder` | Subdomain Finder | Infrastructure | Subdomains via crt.sh, HackerTarget API, DNS brute-force (185+ prefixes) | domain |
+| 6 | `geo-locator` | Geo Locator | Infrastructure | Server location, country, city, ISP, ASN, coordinates | domain, ip |
+| 7 | `http-headers` | HTTP Headers | Infrastructure | Security headers (HSTS, CSP, XFO, etc.), server info, cookies | domain |
+| 8 | `tech-fingerprint` | Tech Fingerprint | Infrastructure | Web server, frameworks, CMS, Cloudflare detection | domain |
+| 9 | `cve-alerts` | CVE Alerts | Threat Intel | Known vulnerabilities from NVD API matching target | domain, ip |
+| 10 | `data-leaks` | Data Leaks | Threat Intel | Breach data from XposedOrNot, LeakCheck, LeakIX + curated breach DB (70+ India-specific breaches) | domain, email, username |
+| 11 | `document-vault` | Document Vault | Threat Intel | Exposed documents, .env, .git/config, backup files on common paths | domain |
+| 12 | `osint-leak` | OSINT Leak | Threat Intel | Deep breach search via Leakosint API (email, phone, name, IP, username) | email, phone, username, name, ip |
+| 13 | `deep-search` | Deep Search | Advanced | Google dorking queries for sensitive files, admin panels, backups | domain, name |
+| 14 | `live-feed` | Live Feed | Advanced | Real-time cyber news from RSS feeds (The Hacker News) | domain, ip, name |
+| 15 | `surface-scan` | Surface Scan | Advanced | Aggregated risk score, attack surface analysis, key port scanning | domain, ip |
 
 ### Performance
 
@@ -392,6 +379,7 @@ Target Query → Input Sanitizer → Auto-Detect Type → 15 Parallel Plugins �
   - **Feodo Tracker** — C2 server IPs (Dridex, Emotet, QakBot)
   - **IPsum** — Blacklisted IPs with detection scores
 - **Processing**: Parse IPs, geo-locate via ip-api.com, build attack vectors, cache results
+- **Health monitoring**: Each source is tracked with status, last fetch time, and error count
 
 #### 2. RealNewsService (RSS News Fetcher)
 
@@ -427,15 +415,16 @@ Create watches to automatically re-scan targets at configurable intervals and ge
 
 ### Key Features
 
-- **Configurable Intervals**: 5 minutes to 7 days
+- **Configurable Intervals**: 60 seconds to 7 days
 - **Plugin Selection**: Choose exactly which plugins run per watch
 - **Smart Change Detection**: Compares `gui_data` JSON across scans — generates human-readable diffs
 - **Alert History**: Full timeline of changes per watch target
 - **Pause/Resume**: Toggle watches on/off without deleting them
+- **Data Source Tracking**: View health status of all threat feeds
 
 ### Retry Logic
 
-On SQLite lock contention, watch tasks retry up to 3 times with exponential backoff (1s, 2s, 4s).
+On SQLite lock contention, watch tasks retry up to 3 times with exponential backoff (1s, 2s, 4s). Non-lock errors raise immediately.
 
 <br/>
 
@@ -449,17 +438,14 @@ A floating in-app assistant (powered by Google Gemini) that acts as a SOC-analys
 
 1. Click the chat bubble in the bottom-right corner to open the assistant
 2. While a scan is active, the current target's findings are automatically passed to the assistant as context
-3. Ask questions directly, or click **Generate Report** to produce a structured SOC report (Target Overview, Key Findings, Risk Assessment, Recommended Actions)
+3. Ask questions directly, or click **Generate Report** to produce a structured SOC report
 4. Any report-length reply shows a **Download as Word (.docx)** button underneath it
 
 ### Word (.docx) Report Export
 
-Report replies aren't limited to the chat window — they can be exported as a polished, ready-to-share Word document:
-
-- Markdown from the chatbot (headings, bullets, nested lists, tables, bold, inline code) is converted into real Word formatting — not just plain text
-- Each export includes a cover page with the TRINETRA title, target, report date, and a classification-style footer
-- The generated `.docx` is suitable to send directly to a SOC analyst, client, or third party
-- Powered by `python-docx` on the backend (`POST /api/report/docx`) — no server-side dependency on Microsoft Word
+- Markdown from the chatbot (headings, bullets, nested lists, tables, bold, inline code) is converted into real Word formatting
+- Each export includes a cover page with the TRINETRA title, target, report date, and classification-style footer
+- Powered by `python-docx` on the backend (`POST /api/report/docx`)
 
 <br/>
 
@@ -491,15 +477,16 @@ IndiaMap (React Component)
 Attack vectors are rendered as an **SVG overlay** using Leaflet's `L.svgOverlay`:
 
 - **Dashed lines** from origin country coordinates to Indian city coordinates
-- **Traveling dots** moving along the line with easing
-- **Glow filter** for visual emphasis
+- **Traveling dots** moving along the line with easing (ease-in-out quadratic)
+- **Glow filter** (SVG `feGaussianBlur`) for visual emphasis
 - **10 FPS throttle** to optimize performance
 - **Pauses animation when tab is hidden** (visibility API)
-- **Shallow comparison** on vector IDs to avoid unnecessary rebuilds
+- **Shallow comparison** on vector IDs to avoid unnecessary SVG rebuilds
 
 ### City Risk Markers
 
 10 major Indian cities plotted with NCRB 2022 cyber crime statistics:
+
 - **Color-coded circles**: Safe (green), Medium (yellow), Critical (red)
 - **Pulsing animation** for critical destinations
 - **Radius proportional** to risk level (7/10/14px)
@@ -510,35 +497,31 @@ Attack vectors are rendered as an **SVG overlay** using Leaflet's `L.svgOverlay`
 
 ## 🔐 Authentication & User System
 
-TRINETRA uses a **username/password registration system** with session tokens, backed by a dedicated React sign-up/login UI (`frontend/src/components/LoginPage/LoginPage.tsx`) with real-time field validation and animated transitions between Sign In and Register.
+TRINETRA uses a **username/password registration system** with session tokens backed by SQLite.
 
-### How It Works
+### Security Features
 
-1. **First visit** — Login page appears with **Sign In** and **Register** tabs
-2. **Register** — Create an account with username, email, and password
-3. **First user becomes admin** — Subsequent users get the "user" role
-4. **Auto-login** — After registration, you're automatically logged in
-5. **Session tokens** — Stored in `localStorage`, verified on page reload
-6. **Token expiry** — Tokens are valid until server restart or logout
-
-### Auth Database
-
-User accounts are stored in a **dedicated SQLite file** (`trinetra_auth.db`) that is independent of the main database connection. This means:
-
-- In **Docker mode** (PostgreSQL): auth still uses SQLite — no extra setup needed
-- In **manual mode** (SQLite): auth shares the SQLite approach
-- The auth DB file is created automatically on first startup
-- Set `AUTH_DB_PATH` env var to customize the location
+| Feature | Status | Details |
+|---------|--------|---------|
+| **Password Hashing** | ✅ bcrypt | GPU-resistant, 12 rounds |
+| **Session Storage** | ✅ Database-backed | Survives server restarts |
+| **Account Lockout** | ✅ 5 failed attempts | 15-minute lockout window |
+| **Password Strength** | ✅ Enforced | 8+ chars, uppercase, lowercase, digit, special char |
+| **Password History** | ✅ Last 5 passwords | Prevents reuse of recent passwords |
+| **Generic Error Messages** | ✅ Enabled | Prevents username enumeration |
+| **Rate Limiting** | ✅ Per-IP sliding window | 10/min search, 60/min general |
+| **Input Validation** | ✅ Strict regex | Rejects control chars, shell metacharacters |
 
 ### API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/auth/status` | Check if auth is enabled and registration is open |
-| `POST` | `/api/auth/register` | Create a new account `{username, email, password}` |
-| `POST` | `/api/auth/login` | Log in with credentials `{username, password}` |
-| `POST` | `/api/auth/verify` | Check if a session token is still valid `{token}` |
-| `POST` | `/api/auth/logout` | Invalidate the current session token |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/auth/status` | Check if auth is enabled and registration is open | ❌ Public |
+| `POST` | `/api/auth/register` | Create a new account `{username, email, password}` | ❌ Public |
+| `POST` | `/api/auth/login` | Log in with credentials `{username, password}` | ❌ Public |
+| `POST` | `/api/auth/verify` | Check if a session token is still valid `{token}` | ❌ Public |
+| `POST` | `/api/auth/logout` | Invalidate the current session token | ✅ Required |
+| `POST` | `/api/auth/change-password` | Change password `{current_password, new_password}` | ✅ Required |
 
 ### Authentication Methods
 
@@ -552,21 +535,13 @@ Authorization: Bearer <your_session_token>
 ?api_key=<your_session_token>  (as query parameter)
 ```
 
-### Security Features
-
-- **Password hashing** — SHA-256 with random 16-byte salt
-- **Session tokens** — 32-byte cryptographically random hex strings
-- **In-memory token store** — Tokens are cleared on server restart
-- **Input validation** — Username regex, email format, minimum password length
-- **Rate limiting** — Per-IP sliding window for all endpoints
-
 <br/>
 
 ---
 
 ## 📡 Real Data Sources
 
-All data in TRINETRA is **real** — no simulated or placeholder data.
+All data in TRINETRA is **real** — no simulated or placeholder data. See the table below for transparency on which data is real vs. statistically modeled.
 
 ### Threat Intelligence Feeds
 
@@ -575,7 +550,7 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 | [Abuse.ch ThreatFox](https://threatfox.abuse.ch/) | Malware IOCs | Malicious IPs, malware families, attack types | ❌ Free |
 | [Feodo Tracker](https://feodotracker.abuse.ch/) | C2 Tracker | C2 server IPs, botnet malware (Dridex, Emotet, QakBot) | ❌ Free |
 | [IPsum](https://github.com/stamparm/ipsum) | IP Blacklist | Blacklisted IPs with detection scores (1-7) | ❌ Free |
-| [ip-api.com](https://ip-api.com/) | Geo-location | Country, city, lat/lon, ISP, org | ❌ Free |
+| [ip-api.com](https://ip-api.com/) | Geo-location | Country, city, lat/lon, ISP, org | ❌ Free (45 req/min) |
 
 ### OSINT Plugins Data Sources
 
@@ -590,10 +565,10 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 | HTTP Headers | httpx (security headers analysis) | ❌ Free |
 | Tech Fingerprint | httpx (server header, x-powered-by, cookie analysis) | ❌ Free |
 | CVE Alerts | NVD API v2.0 | ❌ Free |
-| Data Leaks | XposedOrNot + LeakCheck + LeakIX + curated breach DB | ❌ Free |
+| Data Leaks | XposedOrNot + LeakCheck + LeakIX + curated breach DB (70+ India-specific) | ❌ Free |
 | Document Vault | httpx (12 common sensitive paths checked) | ❌ Free |
 | OSINT Leak | leakosintapi.com | 🔑 API Key |
-| Deep Search | Google dork query generation (manual execution) | ❌ Free |
+| Deep Search | Google dork query generation | ❌ Free |
 | Live Feed | RSS (The Hacker News) via feedparser | ❌ Free |
 | Surface Scan | Built-in async port scanner + risk analyzer | ❌ Free |
 
@@ -609,7 +584,7 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 ### India-Specific Data
 
 - **NCRB 2022** — Official cyber crime statistics for 23 Indian states/UTs
-- **70+ curated India-specific data breaches** (Aadhaar, IRCTC, BigBasket, CoWIN, Truecaller, Jio, etc.)
+- **70+ curated India-specific data breaches** (Aadhaar, IRCTC, BigBasket, CoWIN, Truecaller, Jio, Paytm, etc.)
 - **India GeoJSON** — State boundaries for all states/UTs
 - **City targeting** — 10 major Indian cities with NCRB-weighted attack distribution
 
@@ -624,7 +599,7 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 | Category | Plugins | What They Find |
 |----------|---------|----------------|
 | **Infrastructure** | WHOIS, DNS Lookup, Port Scanner, SSL Health, Subdomain Finder, Geo Locator, HTTP Headers, Tech Fingerprint | Registrar info, A/MX/NS records, open ports, certificate validity, subdomains, geo-location, security headers, tech stack |
-| **Threat Intel** | CVE Alerts, Data Leaks, Document Vault, OSINT Leak | Known vulnerabilities (NVD), breach data (LeakIX, XposedOrNot, LeakCheck), exposed documents, deep leak search |
+| **Threat Intel** | CVE Alerts, Data Leaks, Document Vault, OSINT Leak | Known vulnerabilities (NVD), breach data (LeakIX, XposedOrNot, LeakCheck, curated DB), exposed documents, deep leak search |
 | **Advanced** | Deep Search, Live Feed, Surface Scan | Google dork queries, risk scoring, real-time cyber news |
 
 ### 🗺️ Interactive India Threat Map
@@ -632,22 +607,30 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 - Animated attack vectors with traveling dots from 25+ origin countries
 - City risk markers based on NCRB 2022 cyber crime statistics
 - Crime heatmap overlay with hover tooltips
-- Threat intelligence panel with severity distribution
-- Vector detail modal with AbuseIPDB, AlienVault, CERT-In report actions
+- Threat intelligence panel with severity distribution (bars + numerical)
+- Origin Intelligence Summary — country-level grouping of attack sources
+- Vector detail modal with full IP intelligence and data source annotations
+- Connection status bar showing live/real-time badge
+- Data Sources Health Panel — live status of ThreatFox, Feodo, IPsum, and ip-api.com
 - 10 FPS optimized animation (pauses when tab is hidden)
+- SVG glow filter effects for critical threats
+- Data source legend (color-coded by feed)
 
 ### 📡 Real-Time Threat Feed
 
 - Live events timeline — filterable by All, Attacks, Events, or News
-- Attack vector cards color-coded by severity
-- Cyber news from 4 RSS feeds
+- Attack vector cards color-coded by severity with real malware family names
+- Cyber news from 4 RSS feeds with source attribution
 - Vector detail modal with full IP intelligence
+- Stats dashboard: Critical count, Medium count, Total Vectors, Total Events
+- Connection status indicator with auto-reconnect (exponential backoff)
+- Empty states with contextual messages
 
 ### 📊 Report & Graph Views
 
 - **Report View** — Three modes: GUI (structured table), Terminal (raw output), Split (both)
 - **Full Report** — Executive summary, threat landscape, watches & alerts, intelligence events
-- **Relationship Graph** — Dynamic Cytoscape visualization with color-coded nodes
+- **Relationship Graph** — Dynamic Cytoscape visualization with color-coded nodes (target, IP, DNS, geo, port, CVE, email, domain)
 - **Export** — Save graphs to PNG, copy to clipboard, or export chatbot reports as Word (.docx)
 
 ### 🤖 AI Chatbot Assistant
@@ -656,31 +639,39 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 - Context-aware — automatically sees the current scan's findings
 - One-click **Generate Report** for a structured investigation summary
 - **Download as Word (.docx)** — formatted, cover-paged report ready to share
+- System instruction restricts to OSINT domain knowledge
 
 ### 👁️ Watch & Monitoring
 
-- Automated re-scanning from 5 minutes to 7 days
+- Automated re-scanning from 60 seconds to 7 days
 - Smart change detection with human-readable diffs
 - Alert history with full timeline
 - Plugin-level control per watch
 - Pause/resume without data loss
+- Retry logic with exponential backoff for DB lock contention
 
 ### 🔐 User Authentication
 
-- Dedicated React Sign Up / Login UI with real-time validation
+- Dedicated React Sign Up / Login UI with real-time validation (lucide-react icons)
 - Username/password registration and login
 - First user becomes admin
-- Session tokens stored in localStorage
+- Session tokens stored in localStorage with backend verification on reload
 - All API endpoints require authentication
 - Dedicated SQLite auth database (works with both SQLite and PostgreSQL modes)
+- bcrypt password hashing with 12 rounds
+- Account lockout after 5 failed login attempts
+- Password history prevents reuse of last 5 passwords
+- Password change endpoint
 
 ### 🐳 Docker Deployment
 
 - Fully containerized: PostgreSQL 15, Redis 7, FastAPI, React/Nginx
-- Docker Compose with health checks and dependency ordering
-- Dev mode with hot-reload via bind mounts
+- Docker Compose with health checks and dependency ordering (depends_on with conditions)
+- Dev mode with hot-reload via bind mounts (docker-compose.override.yml)
 - TaskIQ worker for background watch tasks
 - Non-root container security (all services run as unprivileged users)
+- Resource limits (CPU/memory) for all containers
+- Security options: `no-new-privileges`, `cap_drop: ALL`, read-only root FS where possible
 
 ### 🛡️ India-Specific Intelligence
 
@@ -688,6 +679,21 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 - 70+ curated India-specific data breaches
 - India GeoJSON map with state boundaries
 - CERT-In incident reporting
+- Indian second-level TLD support (.ac.in, .edu.in, .gov.in, .co.in, etc.)
+- Indian city coordinate data with NCRB-weighted risk distribution
+
+### 💻 User Interface & UX
+
+- Dark-themed design with CSS custom properties
+- Animated landing page with feature showcase
+- Command palette (Cmd/Ctrl+K) for quick navigation
+- Toast notifications (auto-dismiss after 3.5s, max 5 visible)
+- Shimmer skeleton loading states
+- Scan progress indicator with live plugin completion count
+- Sidebar with plugin status and categorization
+- Empty and error states for every view
+- Data source health monitoring panel
+- Auto-detect search type (domain/IP/email/phone/name)
 
 <br/>
 
@@ -704,6 +710,7 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 | `POST` | `/api/auth/login` | Log in `{username, password}` → session token | ❌ Public |
 | `POST` | `/api/auth/verify` | Verify session token `{token}` | ❌ Public |
 | `POST` | `/api/auth/logout` | Invalidate session token | ✅ Required |
+| `POST` | `/api/auth/change-password` | Change password `{current_password, new_password}` | ✅ Required |
 
 ### OSINT Search Endpoints
 
@@ -713,6 +720,7 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 | `GET` | `/api/search/{target}` | GET variant of search | 10/min |
 | `GET` | `/api/detect?target=` | Auto-detect target type | 60/min |
 | `GET` | `/api/plugins` | List all 15 OSINT plugins | 60/min |
+| `GET` | `/api/target-intel?target=` | Fetch web intelligence (DuckDuckGo + news) | 60/min |
 
 ### Chatbot & Report Endpoints
 
@@ -740,6 +748,7 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 | `GET` | `/api/crime-data` | NCRB 2022 cyber crime data | ❌ Public |
 | `GET` | `/api/health/sources` | Data source health status | ❌ Public |
 | `GET` | `/health` | Backend health + plugin counts | ❌ Public |
+| `GET` | `/` | Root endpoint with API overview | ❌ Public |
 
 ### WebSocket Endpoints
 
@@ -748,7 +757,9 @@ All data in TRINETRA is **real** — no simulated or placeholder data.
 | `/ws/search` | Streaming OSINT search results |
 | `/ws/threats` | Live threat feed for map |
 
-### WebSocket /ws/search Protocol
+### WebSocket Protocols
+
+#### `/ws/search` Protocol
 
 ```
 Client → Server:  {"target": "example.com", "type": "domain"}
@@ -757,7 +768,7 @@ Server → Client:  {"type": "result", "result": {...}, "completed": X, "total":
 Server → Client:  {"type": "complete", "total": N, "completed": N}
 ```
 
-### WebSocket /ws/threats Protocol
+#### `/ws/threats` Protocol
 
 ```
 Server → Client:  {"type": "initial_state", "events": [...], "cities": [...], "timestamp": "..."}
@@ -774,14 +785,14 @@ Client → Server:  {"action": "pause"} | {"action": "resume"} | {"action": "sto
 ```bash
 curl -X POST http://localhost:8000/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username": "admin", "email": "admin@example.com", "password": "securepass123"}'
+  -d '{"username": "admin", "email": "admin@example.com", "password": "SecurePass123!"}'
 ```
 
 **Login:**
 ```bash
 curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "securepass123"}'
+  -d '{"username": "admin", "password": "SecurePass123!"}'
 ```
 
 **Run a search (with auth token):**
@@ -797,6 +808,14 @@ curl -X POST http://localhost:8000/api/search \
 curl -H "X-API-Key: <token>" http://localhost:8000/api/plugins
 ```
 
+**Change password:**
+```bash
+curl -X POST http://localhost:8000/api/auth/change-password \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <token>" \
+  -d '{"current_password": "oldpass", "new_password": "NewSecurePass123!"}'
+```
+
 <br/>
 
 ---
@@ -808,29 +827,44 @@ trinetra/
 ├── backend/
 │   ├── app/
 │   │   ├── api/                        # REST + WebSocket routes
-│   │   │   ├── routes.py               # Auth (login/register), search, detect, plugins
-│   │   │   ├── websocket_routes.py     # /ws/search streaming
-│   │   │   ├── threat_routes.py        # /ws/threats live feed
-│   │   │   ├── watch_routes.py         # Watch CRUD + alerts
+│   │   │   ├── routes.py               # Auth (login/register), search, detect, plugins, target-intel
+│   │   │   ├── websocket_routes.py     # /ws/search streaming scan results
+│   │   │   ├── threat_routes.py        # /ws/threats live feed for map
+│   │   │   ├── watch_routes.py         # Watch CRUD + alert endpoints
 │   │   │   ├── chat_routes.py          # AI chatbot (/api/chat)
 │   │   │   ├── report_routes.py        # Word (.docx) report export (/api/report/docx)
 │   │   │   └── data_routes.py          # NCRB crime data, source health
-│   │   ├── core/                       # App core
+│   │   ├── core/                       # App core modules
 │   │   │   ├── config.py               # Settings via pydantic-settings + .env
-│   │   │   ├── detector.py             # Auto-detect target type
+│   │   │   ├── detector.py             # Auto-detect target type (domain/IP/email/phone/name)
 │   │   │   ├── sanitizer.py            # Input validation & sanitization
 │   │   │   ├── rate_limiter.py         # In-memory sliding window rate limiter
 │   │   │   └── api_key_auth.py         # User auth (register, login, tokens, dedicated SQLite DB)
 │   │   ├── data/
-│   │   │   └── ncrb_crime_data.py      # NCRB 2022 cyber crime statistics
+│   │   │   └── ncrb_crime_data.py      # NCRB 2022 cyber crime statistics (23 states)
 │   │   ├── models/
 │   │   │   └── schemas.py              # Pydantic request/response models
 │   │   ├── plugins/                    # 15 OSINT plugins (auto-discovered)
-│   │   │   ├── base.py                 # Abstract base class (OSINTPlugin)
-│   │   │   ├── registry.py             # Auto-discovery plugin registry
-│   │   │   ├── infrastructure/         # 8 plugins (domain, DNS, ports, SSL, subdomains, geo, headers, tech)
-│   │   │   ├── threat/                 # 4 plugins (CVE, data leaks, document vault, OSINT leak)
-│   │   │   └── advanced/               # 3 plugins (deep search, live feed, surface scan)
+│   │   │   ├── base.py                 # Abstract base class (OSINTPlugin) + PluginResult
+│   │   │   ├── registry.py             # Auto-discovery plugin registry (singleton)
+│   │   │   ├── infrastructure/         # 8 plugins
+│   │   │   │   ├── domain_record.py    # WHOIS registration lookup
+│   │   │   │   ├── name_servers.py     # DNS record resolution (A, MX, NS, TXT, etc.)
+│   │   │   │   ├── port_scanner.py     # TCP port scanner (24 ports)
+│   │   │   │   ├── ssl_health.py       # SSL certificate validation
+│   │   │   │   ├── subdomain_finder.py # Subdomain discovery (crt.sh, HackerTarget, DNS brute-force)
+│   │   │   │   ├── geo_locator.py      # IP geo-location (ip-api.com)
+│   │   │   │   ├── http_headers.py     # HTTP security headers analysis
+│   │   │   │   └── tech_fingerprint.py # Web server/framework detection
+│   │   │   ├── threat/                 # 4 plugins
+│   │   │   │   ├── cve_alerts.py       # NVD vulnerability lookup
+│   │   │   │   ├── data_leaks.py       # Breach database search (3 APIs + curated DB)
+│   │   │   │   ├── document_vault.py   # Exposed document scanner
+│   │   │   │   └── osint_leak.py       # Deep breach search via Leakosint API
+│   │   │   └── advanced/               # 3 plugins
+│   │   │       ├── deep_search.py      # Google dork query generation
+│   │   │       ├── live_feed.py        # RSS news feed
+│   │   │       └── surface_scan.py     # Risk score + attack surface analysis
 │   │   ├── services/
 │   │   │   ├── orchestrator.py         # Plugin orchestrator (parallel execution)
 │   │   │   ├── threat_feed.py          # Live threat feed broadcaster
@@ -839,62 +873,64 @@ trinetra/
 │   │   │   ├── watch_service.py        # Watch CRUD + alert service
 │   │   │   ├── chat_service.py         # Gemini AI chatbot service
 │   │   │   ├── docx_report_service.py  # Markdown → Word (.docx) report generator
-│   │   │   ├── database.py             # Async SQLAlchemy (SQLite/PostgreSQL)
+│   │   │   ├── database.py             # Async SQLAlchemy (SQLite/PostgreSQL, dual SQL sets)
 │   │   │   └── telegram_bot.py         # Telegram OSINT bot (optional)
 │   │   ├── tasks/
-│   │   │   ├── broker.py               # TaskIQ broker (Redis-backed)
-│   │   │   ├── scheduler.py            # Watch scheduler
-│   │   │   └── watch_tasks.py          # Watch scan + change detection
+│   │   │   ├── broker.py               # TaskIQ broker (Redis-backed or in-memory)
+│   │   │   ├── scheduler.py            # Watch scheduler (60s polling loop)
+│   │   │   └── watch_tasks.py          # Watch scan + change detection + alert creation
 │   │   └── main.py                     # FastAPI app factory + lifespan
 │   ├── tests/
-│   │   ├── test_api_key_auth.py        # Auth unit tests
-│   │   ├── test_data_leaks.py          # Data leak plugin tests
-│   │   ├── test_watch_alerts.py        # Watch alert tests
+│   │   ├── conftest.py                 # Test fixtures (in-memory SQLite DB)
+│   │   ├── test_api_key_auth.py        # Auth unit tests (bcrypt, sessions, lockout)
+│   │   ├── test_data_leaks.py          # Data leak plugin tests (mocked APIs)
+│   │   ├── test_plugins.py             # Plugin system tests (base, registry, orchestrator)
+│   │   ├── test_watch_alerts.py        # Alert detection/parsing tests
 │   │   ├── test_watch_retry.py         # Watch retry logic tests
 │   │   ├── test_watch_routes.py        # Watch API route tests
 │   │   └── test_watch_service.py       # Watch service tests
 │   ├── Dockerfile                      # Multi-stage Python 3.11 build
 │   ├── init.sql                        # PostgreSQL initial schema
-│   └── requirements.txt
+│   └── requirements.txt                # Python dependencies (16 packages)
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── LoginPage/              # React Sign Up / Login UI (real-time validation)
-│   │   │   ├── ChatBot/                # AI chatbot assistant + Word (.docx) report export
+│   │   │   ├── LoginPage/              # React Sign Up / Login UI with real-time validation
 │   │   │   ├── LandingPage/            # Pre-search landing/welcome screen
-│   │   │   ├── Map/IndiaMap.tsx        # Interactive India threat map
-│   │   │   ├── SearchBar/SearchBar.tsx # Auto-detect search input
+│   │   │   ├── ChatBot/                # AI chatbot assistant + Word (.docx) report export
+│   │   │   ├── Map/IndiaMap.tsx        # Interactive India threat map (Leaflet)
+│   │   │   ├── LiveFeed/               # Real-time threat feed page
+│   │   │   ├── SearchBar/              # Auto-detect search input bar
 │   │   │   ├── CommandPalette/         # Cmd/Ctrl+K quick command palette
-│   │   │   ├── ReportView/             # Plugin detail report (GUI/Terminal/Split)
+│   │   │   ├── ReportView/             # Plugin detail report (GUI/Terminal/Split modes)
 │   │   │   ├── FullReportView/         # Full system intelligence report
-│   │   │   ├── LiveFeed/LiveFeed.tsx   # Real-time events page
-│   │   │   ├── WatchPanel/             # Watch management
-│   │   │   ├── GraphView/              # Cytoscape relationship graph
-│   │   │   ├── VectorDetailModal/      # Attack vector details
+│   │   │   ├── GraphView/              # Cytoscape relationship graph visualization
+│   │   │   ├── VectorDetailModal/      # Attack vector detail modal
+│   │   │   ├── WatchPanel/             # Watch CRUD management interface
 │   │   │   ├── Sidebar/                # Plugin status sidebar
-│   │   │   ├── DataSourcesPanel/       # Data source health
-│   │   │   ├── DashboardStats/         # Stats bar
+│   │   │   ├── DataSourcesPanel/       # Data source health panel
+│   │   │   ├── DashboardStats/         # Stats bar (during/after scan)
 │   │   │   ├── ScanProgress/           # Scan progress indicator
 │   │   │   ├── EmptyState/             # No-results placeholder
 │   │   │   ├── ErrorState/             # Error placeholder
 │   │   │   ├── Skeleton/               # Shimmer loading skeleton
-│   │   │   ├── Icons/                  # Shared icon set
-│   │   │   └── ToastNotification/      # Toast notifications
+│   │   │   ├── ToastNotification/      # Toast notifications
+│   │   │   └── Icons/                  # Shared icon set
 │   │   ├── store/
-│   │   │   ├── AppContext.tsx           # Global app state
+│   │   │   ├── AppContext.tsx           # Global app state (search, results, toasts, tabs)
 │   │   │   ├── AuthContext.tsx          # Auth state + login/register/logout
-│   │   │   └── ThreatContext.tsx        # Live threat feed state
+│   │   │   └── ThreatContext.tsx        # Live threat feed state (WebSocket)
 │   │   ├── types/index.ts               # TypeScript type definitions
 │   │   ├── utils/
-│   │   │   ├── api.ts                   # REST API client
+│   │   │   ├── api.ts                   # REST API client with auth headers
 │   │   │   ├── detectSearchType.ts      # Client-side type detection
 │   │   │   ├── useWebSocket.ts          # WebSocket scan hook
-│   │   │   ├── useThreatFeed.ts         # WebSocket threat feed hook
+│   │   │   ├── useThreatFeed.ts         # WebSocket threat feed hook (auto-reconnect)
 │   │   │   ├── wsUtils.ts              # WebSocket URL builder
 │   │   │   ├── pluginMapper.ts          # API response → frontend types
 │   │   │   └── indiaStatesGeoJSON.ts    # India GeoJSON boundaries
-│   │   ├── App.tsx                      # Root app component
-│   │   ├── main.tsx                     # React entry point
+│   │   ├── App.tsx                      # Root app component (landing, auth gate, dashboard)
+│   │   ├── main.tsx                     # React entry point with context providers
 │   │   └── styles.css                   # Complete dark-themed design system
 │   ├── Dockerfile                       # Multi-stage Node → Nginx build
 │   ├── nginx.conf                       # Nginx reverse proxy config
@@ -902,7 +938,7 @@ trinetra/
 ├── docker-compose.yml                   # Production compose (PostgreSQL, Redis, Backend, Worker, Frontend)
 ├── docker-compose.override.yml          # Dev overrides (hot-reload bind mounts)
 ├── .env.example                         # Environment variable template
-└── README.md
+└── README.md                            # This file
 ```
 
 <br/>
@@ -917,7 +953,7 @@ trinetra/
 |----------|---------|-------------|
 | `APP_NAME` | `TRINETRA OSINT API` | Application display name |
 | `DEBUG` | `false` | Enable debug mode |
-| `DATABASE_URL` | `sqlite+aiosqlite:///./trinetra.db` | Database connection |
+| `DATABASE_URL` | `sqlite+aiosqlite:///./trinetra.db` | Database connection string |
 | `AUTH_DB_PATH` | `trinetra_auth.db` | Path to dedicated SQLite auth database (auto-created) |
 | `CORS_ORIGINS` | `["http://localhost:3000","http://localhost:5173"]` | Allowed CORS origins |
 | `PLUGIN_TIMEOUT` | `30` | Per-plugin timeout in seconds |
@@ -925,8 +961,12 @@ trinetra/
 | `TELEGRAM_BOT_TOKEN` | `""` | Telegram Bot token |
 | `TELEGRAM_OSINT_API_URL` | `""` | OSINT Leak API base URL |
 | `TELEGRAM_OSINT_API_KEY` | `""` | API key for OSINT API |
-| `GEMINI_API_KEY` | `""` | Google Gemini API key (enables the AI chatbot & report generation) |
+| `GEMINI_API_KEY` | `""` | Google Gemini API key (enables AI chatbot & report generation) |
 | `GEMINI_MODEL` | `gemini-flash-latest` | Gemini model used for chatbot replies |
+| `REDIS_URL` | `""` | Redis URL for TaskIQ broker (empty = inline execution) |
+| `TRUST_PROXY_HEADERS` | `false` | Set true behind a known reverse proxy |
+| `CACHE_TTL_DEFAULT` | `3600` | Default cache TTL in seconds |
+| `CACHE_TTL_LONG` | `86400` | Long cache TTL in seconds (24 hours) |
 
 ### Database Backend Selection
 
@@ -941,14 +981,66 @@ trinetra/
 
 ---
 
+## 🧪 Testing
+
+### Backend Tests
+
+```bash
+cd backend
+
+# Install test dependencies
+pip install -r requirements.txt
+
+# Run all tests
+python -m pytest tests/ -v
+
+# Run specific test file
+python -m pytest tests/test_plugins.py -v
+
+# Run with coverage
+python -m pytest tests/ -v --cov=app
+```
+
+### Frontend Tests
+
+```bash
+cd frontend
+
+# Run tests
+npm test
+
+# Run tests once
+npm run test:run
+
+# Run with coverage
+npm run test:coverage
+```
+
+### Test Coverage
+
+| Test File | What It Tests |
+|-----------|---------------|
+| `test_api_key_auth.py` | bcrypt hashing, DB sessions, account lockout, password validation |
+| `test_data_leaks.py` | Data leak plugin with mocked APIs (XposedOrNot, LeakCheck, LeakIX) |
+| `test_plugins.py` | PluginResult, OSINTPlugin base, Registry, Orchestrator, AutoDetect, Sanitizer |
+| `test_watch_alerts.py` | Alert diff parsing, JSON field parsing, plugin ID parsing |
+| `test_watch_retry.py` | Watch scan retry logic, DB lock handling, change detection |
+| `test_watch_routes.py` | Watch API route CRUD operations |
+| `test_watch_service.py` | Watch service create/list/get/delete/toggle operations |
+
+<br/>
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! Here's how you can help:
 
 - **Report bugs** — Open an issue with reproduction steps
 - **Suggest features** — Open an issue with your idea
-- **Add plugins** — New OSINT plugins welcome! See the base class in `backend/app/plugins/base.py`
+- **Add plugins** — New OSINT plugins welcome! See the base class below
 - **Improve the map** — Better visualizations, new overlays, performance optimizations
+- **Add tests** — Increase coverage, especially integration and E2E tests
 
 ### How to Add a New Plugin
 
@@ -979,17 +1071,28 @@ class MyNewPlugin(OSINTPlugin):
         )
 ```
 
-### Development Setup
+### Development Workflow
 
 ```bash
-# Docker (recommended)
+# Clone the repo
+git clone https://github.com/K921-cyber/INDRA.git
+cd INDRA
+
+# Docker (recommended for development)
 docker compose -p indra2 up -d          # Full stack with hot-reload
 docker compose -p indra2 logs -f backend  # Watch backend logs
 
-# Manual (no Docker)
+# Or manual (no Docker)
 cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8010
 cd frontend && npm install && npx vite --host 0.0.0.0 --port 3000
 ```
+
+### Coding Standards
+
+- **Python**: Follow PEP 8, use type hints, write docstrings for all public functions
+- **TypeScript**: Follow the existing patterns, use strict types, avoid `any`
+- **Tests**: Write tests for new plugins and services, mock external APIs
+- **Plugins**: Handle errors gracefully in `run_safe()` wrapper, provide both `gui_data` and `terminal_data`
 
 <br/>
 
@@ -1012,8 +1115,8 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
   </p>
   <br/>
   <p>
-    <a href="https://github.com/your-username/trinetra/issues">Report Bug</a> ·
-    <a href="https://github.com/your-username/trinetra/issues">Request Feature</a> ·
-    <a href="https://github.com/your-username/trinetra">GitHub</a>
+    <a href="https://github.com/K921-cyber/INDRA/issues">Report Bug</a> ·
+    <a href="https://github.com/K921-cyber/INDRA/issues">Request Feature</a> ·
+    <a href="https://github.com/K921-cyber/INDRA">GitHub</a>
   </p>
 </div>

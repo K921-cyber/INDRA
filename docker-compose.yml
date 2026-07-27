@@ -84,6 +84,9 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-["http://localhost:3000","http://localhost"]}
       - PLUGIN_TIMEOUT=30
       - HIBP_API_KEY=${HIBP_API_KEY:-}
+      - AUTH_DB_PATH=/app/data/trinetra_auth.db
+    volumes:
+      - auth_data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,6 +134,9 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-["http://localhost:3000","http://localhost"]}
       - PLUGIN_TIMEOUT=30
       - HIBP_API_KEY=${HIBP_API_KEY:-}
+      - AUTH_DB_PATH=/app/data/trinetra_auth.db
+    volumes:
+      - auth_data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -201,6 +207,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  auth_data:
 
 networks:
   trinetra:
