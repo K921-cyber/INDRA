@@ -25,7 +25,7 @@
 
 > **Search any domain, IP, email, phone, or name — get 360° threat intelligence in seconds.**
 >
-> TRINETRA is an all-in-one OSINT platform built for India. It combines **15 parallel OSINT plugins**, a **live threat feed** powered by real malicious IP data, **automated watch monitoring**, an **interactive threat map dashboard**, and an **AI chatbot assistant** — all wrapped in a modern, dark-themed web interface.
+> TRINETRA is an all-in-one OSINT platform built for India. It combines **15 parallel OSINT plugins**, a **live threat feed** powered by real malicious IP data, **automated watch monitoring**, an **interactive threat map dashboard**, an **AI chatbot assistant**, and a **Cashfree-powered credits & payments system** (flat 10 credits per search) — all wrapped in a modern, dark-themed web interface.
 
 <br/>
 
@@ -38,6 +38,7 @@
   <b>📊 Professional Reports</b>&nbsp;&nbsp;·&nbsp;&nbsp;
   <b>🧠 Relationship Graphs</b>&nbsp;&nbsp;·&nbsp;&nbsp;
   <b>🔐 User Registration</b>&nbsp;&nbsp;·&nbsp;&nbsp;
+  <b>💳 Credits & Payments</b>&nbsp;&nbsp;·&nbsp;&nbsp;
   <b>🤖 AI Assistant</b>
 </p>
 
@@ -57,6 +58,7 @@
 - [🤖 AI Chatbot Assistant](#-ai-chatbot-assistant)
 - [🗺️ Interactive Map](#️-interactive-map)
 - [🔐 Authentication & User System](#-authentication--user-system)
+- [💳 Credits & Payments](#-credits--payments)
 - [📡 Real Data Sources](#-real-data-sources)
 - [✨ Features](#-features)
 - [📡 API Reference](#-api-reference)
@@ -106,7 +108,8 @@ docker compose -p indra2 up -d --build
 
 1. Open [http://localhost:3000](http://localhost:3000)
 2. Click **Register** and create an account (first user becomes admin)
-3. Start searching domains, IPs, emails, phones, or names
+3. If payments are configured, you'll land on the **payment page** — new accounts start with **0 credits**, so pick a plan and pay via Cashfree (sandbox test card: `4111 1111 1111 1111`)
+4. Start searching domains, IPs, emails, phones, or names — **every search costs a flat 10 credits**
 
 ### Useful Docker Commands
 
@@ -155,8 +158,8 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Start the backend server
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
+# Start the backend server (Vite dev proxy targets localhost:8000)
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The database (`trinetra.db`) and users table are created automatically on first startup. The first user to register becomes an admin.
@@ -181,7 +184,7 @@ taskiq worker app.tasks.broker:broker app.tasks.watch_tasks
 
 Then open **http://localhost:3000** — register a new account and start searching.
 
-> **Note on ports:** In Docker mode the backend runs on port **8000**. In manual mode it runs on port **8010**. All API examples in this README use port **8000** for Docker. For manual mode, replace `8000` with `8010`.
+> **Note on ports:** The backend always runs on port **8000** — the Vite dev server proxies `/api` and `/ws` to `localhost:8000`, so manual mode must use **8000** too. All API examples in this README use port **8000**.
 
 <br/>
 
@@ -264,7 +267,7 @@ Investigating a single domain typically means juggling **multiple separate tools
                                     │            │
                     ┌───────────────▼────────────▼─────────────┐
                     │         FastAPI Backend                   │
-                    │         (port 8000 Docker / 8010 Manual)  │
+                    │         (port 8000)                       │
                     │                                          │
                     │  ┌──────────┐  ┌────────────────────┐    │
                     │  │ REST API │  │ WebSocket Streaming│    │
@@ -309,6 +312,7 @@ Investigating a single domain typically means juggling **multiple separate tools
 | **Data** | httpx + feedparser | External API calls + RSS parsing |
 | **AI Chatbot** | Google Gemini API | In-app SOC assistant + report generation |
 | **Report Export** | python-docx | Markdown → Word (.docx) report conversion |
+| **Payments** | Cashfree PG | Credit packs via Cashfree checkout (sandbox/production) |
 | **Bot** | python-telegram-bot | Telegram OSINT leak search (optional) |
 
 <br/>
@@ -525,7 +529,7 @@ TRINETRA uses a **username/password registration system** with session tokens ba
 
 ### Authentication Methods
 
-Once logged in, all API endpoints require the session token via:
+Once logged in, all protected API endpoints require the session token via:
 
 ```
 X-API-Key: <your_session_token>
@@ -534,6 +538,61 @@ Authorization: Bearer <your_session_token>
 # or (WebSocket only)
 ?api_key=<your_session_token>  (as query parameter)
 ```
+
+<br/>
+
+---
+
+## 💳 Credits & Payments
+
+TRINETRA uses a **flat credit system** to recover infrastructure costs and monetize the platform. Every OSINT search costs exactly **10 credits** — regardless of how many plugins match the target.
+
+### Billing Rules
+
+| Rule | Value |
+|------|-------|
+| **Cost per search** | Flat **10 credits** (any target type, any plugin mix) |
+| **New account** | Starts with **0 credits** — must purchase a plan before searching |
+| **Deduction timing** | Deducted **before** the scan runs |
+| **Refund** | Full 10 credits refunded **only if the entire scan fails or returns zero successful results** |
+| **Partial failures** | Still charged full 10 credits |
+| **Payment gateway** | [Cashfree](https://cashfree.com/) (sandbox for testing, production for live) |
+
+### Credit Packs
+
+| Plan | Price | Credits | ≈ Searches |
+|------|-------|---------|------------|
+| **Starter** | ₹99 | 10 | 1 |
+| **Pro** | ₹499 | 100 | 10 |
+| **Elite** | ₹1,499 | 500 | 50 |
+
+### Payment Flow
+
+1. User picks a plan on the **Payment Page** → frontend calls `POST /api/payment/create-order`
+2. Backend creates a Cashfree order and returns a `payment_session_id`
+3. Cashfree checkout opens (`_self` redirect); after payment, Cashfree redirects back with `?order_id=`
+4. Frontend verifies via `POST /api/payment/verify` (fast polling) → credits are added idempotently
+5. A signature-verified **webhook** (`POST /api/payment/webhook`) confirms server-side as well
+6. Credits appear in the **credits badge** (top bar) and the dashboard unlocks
+
+> **Sandbox testing:** With `CASHFREE_ENV=sandbox`, use card `4111 1111 1111 1111`, any future expiry (e.g. `12/25`), CVV `123`, and any name.
+>
+> **Webhook in local dev:** `localhost` webhook URLs can't be reached by Cashfree's servers, so the frontend's `/verify` polling is the credit-adding path in dev. Set `CASHFREE_WEBHOOK_URL` to a publicly reachable URL for production.
+
+### Credits Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/payment/plans` | List available credit packs | ❌ Public |
+| `POST` | `/api/payment/create-order` | Create a Cashfree order `{plan_id}` | ✅ Required |
+| `POST` | `/api/payment/verify` | Verify an order + credit the account `{order_id}` | ✅ Required |
+| `GET` | `/api/payment/credits` | Get the current credit balance | ✅ Required |
+| `GET` | `/api/payment/history` | Payment history | ✅ Required |
+| `POST` | `/api/payment/webhook` | Cashfree webhook (signature-verified) | ❌ Public |
+
+### Search Credit Billing
+
+Both the REST (`POST/GET /api/search`) and WebSocket (`/ws/search`) search paths deduct **10 credits** upfront and refund the full amount only when the scan returns zero successful results (or crashes/disconnects). When payments are enabled, a `credits_summary` message with `credits_used`, `credits_refunded`, and `credits_remaining` is sent after each WebSocket scan.
 
 <br/>
 
@@ -722,6 +781,17 @@ All data in TRINETRA is **real** — no simulated or placeholder data. See the t
 | `GET` | `/api/plugins` | List all 15 OSINT plugins | 60/min |
 | `GET` | `/api/target-intel?target=` | Fetch web intelligence (DuckDuckGo + news) | 60/min |
 
+### Payment & Credits Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/payment/plans` | List available credit packs | ❌ Public |
+| `POST` | `/api/payment/create-order` | Create a Cashfree order `{plan_id}` | ✅ Required |
+| `POST` | `/api/payment/verify` | Verify an order + credit the account `{order_id}` | ✅ Required |
+| `GET` | `/api/payment/credits` | Get the current credit balance | ✅ Required |
+| `GET` | `/api/payment/history` | Payment history | ✅ Required |
+| `POST` | `/api/payment/webhook` | Cashfree webhook (signature-verified) | ❌ Public |
+
 ### Chatbot & Report Endpoints
 
 | Method | Endpoint | Description | Auth |
@@ -766,6 +836,7 @@ Client → Server:  {"target": "example.com", "type": "domain"}
 Server → Client:  {"type": "start", "total": N, "plugins": [...]}
 Server → Client:  {"type": "result", "result": {...}, "completed": X, "total": N}  × N times
 Server → Client:  {"type": "complete", "total": N, "completed": N}
+Server → Client:  {"type": "credits_summary", "credits_used": 10, "credits_refunded": M, "credits_remaining": R}  (when payments enabled)
 ```
 
 #### `/ws/threats` Protocol
@@ -779,7 +850,7 @@ Client → Server:  {"action": "pause"} | {"action": "resume"} | {"action": "sto
 
 ### API Examples
 
-> **Note:** These examples use port **8000** (Docker mode). For manual mode, replace with port **8010**.
+> **Note:** All examples use port **8000** — both Docker and manual mode (the Vite dev proxy targets `localhost:8000`).
 
 **Register a user:**
 ```bash
@@ -833,6 +904,7 @@ trinetra/
 │   │   │   ├── watch_routes.py         # Watch CRUD + alert endpoints
 │   │   │   ├── chat_routes.py          # AI chatbot (/api/chat)
 │   │   │   ├── report_routes.py        # Word (.docx) report export (/api/report/docx)
+│   │   │   ├── payment_routes.py       # Cashfree payment + credits endpoints
 │   │   │   └── data_routes.py          # NCRB crime data, source health
 │   │   ├── core/                       # App core modules
 │   │   │   ├── config.py               # Settings via pydantic-settings + .env
@@ -873,6 +945,7 @@ trinetra/
 │   │   │   ├── watch_service.py        # Watch CRUD + alert service
 │   │   │   ├── chat_service.py         # Gemini AI chatbot service
 │   │   │   ├── docx_report_service.py  # Markdown → Word (.docx) report generator
+│   │   │   ├── payment_service.py      # Cashfree orders, verification, webhooks, flat pricing
 │   │   │   ├── database.py             # Async SQLAlchemy (SQLite/PostgreSQL, dual SQL sets)
 │   │   │   └── telegram_bot.py         # Telegram OSINT bot (optional)
 │   │   ├── tasks/
@@ -897,6 +970,8 @@ trinetra/
 │   │   ├── components/
 │   │   │   ├── LoginPage/              # React Sign Up / Login UI with real-time validation
 │   │   │   ├── LandingPage/            # Pre-search landing/welcome screen
+│   │   │   ├── PaymentPage/            # Plan selection + Cashfree checkout + success state
+│   │   │   ├── CreditsBadge/           # Top-bar credit balance badge + buy button
 │   │   │   ├── ChatBot/                # AI chatbot assistant + Word (.docx) report export
 │   │   │   ├── Map/IndiaMap.tsx        # Interactive India threat map (Leaflet)
 │   │   │   ├── LiveFeed/               # Real-time threat feed page
@@ -963,6 +1038,10 @@ trinetra/
 | `TELEGRAM_OSINT_API_KEY` | `""` | API key for OSINT API |
 | `GEMINI_API_KEY` | `""` | Google Gemini API key (enables AI chatbot & report generation) |
 | `GEMINI_MODEL` | `gemini-flash-latest` | Gemini model used for chatbot replies |
+| `CASHFREE_APP_ID` | `""` | Cashfree app ID (empty = payments disabled, free mode) |
+| `CASHFREE_SECRET_KEY` | `""` | Cashfree secret key (empty = payments disabled, free mode) |
+| `CASHFREE_ENV` | `sandbox` | `sandbox` for testing, `production` for live payments |
+| `CASHFREE_WEBHOOK_URL` | `http://localhost:8000/api/payment/webhook` | Public webhook URL Cashfree posts payment events to |
 | `REDIS_URL` | `""` | Redis URL for TaskIQ broker (empty = inline execution) |
 | `TRUST_PROXY_HEADERS` | `false` | Set true behind a known reverse proxy |
 | `CACHE_TTL_DEFAULT` | `3600` | Default cache TTL in seconds |
@@ -1083,7 +1162,7 @@ docker compose -p indra2 up -d          # Full stack with hot-reload
 docker compose -p indra2 logs -f backend  # Watch backend logs
 
 # Or manual (no Docker)
-cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8010
+cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8000
 cd frontend && npm install && npx vite --host 0.0.0.0 --port 3000
 ```
 
