@@ -20,6 +20,7 @@ from app.api.threat_routes import router as threat_router
 from app.api.data_routes import router as data_router
 from app.api.chat_routes import router as chat_router
 from app.api.report_routes import router as report_router
+from app.api.payment_routes import router as payment_router
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 from app.services.threat_feed import threat_feed
 from app.services.telegram_bot import TelegramBotService
@@ -116,6 +117,7 @@ app.include_router(threat_router)
 app.include_router(data_router)
 app.include_router(chat_router)
 app.include_router(report_router)
+app.include_router(payment_router)
 
 @app.get("/")
 async def root():

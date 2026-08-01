@@ -49,6 +49,7 @@ class OSINTLeakPlugin(OSINTPlugin):
     description = "Search across data breaches and leaks for emails, phones, names, IPs, and usernames"
     input_types = ["email", "phone", "username", "name", "ip"]
     icon = "💦"
+    credit_cost = 10  # Premium module — third-party Telegram leak intelligence subscription
 
     API_URL = "https://leakosintapi.com/"
     TIMEOUT = 30

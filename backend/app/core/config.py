@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""  # set via GEMINI_API_KEY env var
     gemini_model: str = "gemini-flash-latest"
 
+    # Cashfree Payment Gateway
+    cashfree_app_id: str = ""       # set via CASHFREE_APP_ID env var
+    cashfree_secret_key: str = ""   # set via CASHFREE_SECRET_KEY env var
+    cashfree_env: str = "sandbox"   # "sandbox" or "production"
+    cashfree_webhook_url: str = "http://localhost:8000/api/payment/webhook"  # set via CASHFREE_WEBHOOK_URL env var
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

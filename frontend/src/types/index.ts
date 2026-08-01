@@ -33,8 +33,9 @@ export interface ToolResult {
   freshness: Freshness;
   timestamp: string;
   status: 'running' | 'completed' | 'failed';
-  guiData: Record<string, any>;
+  guiData: Record<string, unknown>;
   terminalData: string;
+  creditCost: number;
 }
 
 // ==================== Map Types ====================
@@ -82,7 +83,7 @@ export interface GraphNode {
   id: string;
   label: string;
   type: GraphNodeType;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export interface GraphEdge {
@@ -137,8 +138,8 @@ export interface AlertEntry {
   watch_id: number;
   target: string;
   plugin_id: string;
-  old_data: Record<string, any>;
-  new_data: Record<string, any>;
+  old_data: Record<string, unknown>;
+  new_data: Record<string, unknown>;
   summary: string;
   created_at: string;
 }

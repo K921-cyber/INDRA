@@ -77,7 +77,7 @@ export default function ReportView() {
     });
   };
 
-  const renderGuiView = (data: Record<string, any>) => (
+  const renderGuiView = (data: Record<string, unknown>) => (
     <table className="report-gui-table">
       <tbody>
         {Object.entries(data).length === 0 ? (
@@ -86,7 +86,7 @@ export default function ReportView() {
           Object.entries(data).map(([key, value]) => (
             <tr key={key}>
               <td className="report-gui-key">{key}</td>
-              <td className="report-gui-val">{Array.isArray(value) ? value.join(', ') : String(value)}</td>
+              <td className="report-gui-val">{Array.isArray(value) ? value.join(', ') : String(value ?? '')}</td>
             </tr>
           ))
         )}

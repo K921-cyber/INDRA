@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../../store/AppContext';
-import { ToolPlugin, ToolCategory } from '../../types';
+import { ToolPlugin, ToolCategory, SearchType } from '../../types';
 import { GlobeIcon, AlertTriangleIcon, CrosshairIcon, ChevronRightIcon, ChevronDownIcon } from '../Icons/Icons';
-import { api } from '../../utils/api';
+import { api, PluginInfo } from '../../utils/api';
 
 
 
@@ -31,13 +31,13 @@ export default function Sidebar() {
     api.listPlugins()
       .then(data => {
         if (data.plugins) {
-          const mapped: ToolPlugin[] = data.plugins.map((p: any) => ({
+          const mapped: ToolPlugin[] = data.plugins.map((p: PluginInfo) => ({
             id: p.id,
             name: p.name,
             description: p.description || '',
             category: p.category as ToolCategory,
-            icon: p.icon || '🔌',
-            inputTypes: p.input_types || [],
+            icon: '🔌',
+            inputTypes: (p.input_types || []) as SearchType[],
             enabled: true,
           }));
           setPlugins(mapped);

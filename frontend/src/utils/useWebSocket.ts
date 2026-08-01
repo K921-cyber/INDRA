@@ -17,9 +17,10 @@ export interface WebSocketResultMessage {
     status: string;
     freshness: string;
     timestamp: string;
-    gui_data: Record<string, any>;
+    gui_data: Record<string, unknown>;
     terminal_data: string;
     error?: string;
+    credit_cost?: number;
   };
   completed: number;
   total: number;
@@ -37,15 +38,24 @@ export interface WebSocketErrorMessage {
   message: string;
 }
 
+export interface WebSocketCreditsSummaryMessage {
+  type: 'credits_summary';
+  credits_used: number;
+  credits_refunded: number;
+  credits_remaining: number;
+}
+
 export type WebSocketMessage =
   | WebSocketStartMessage
   | WebSocketResultMessage
   | WebSocketCompleteMessage
-  | WebSocketErrorMessage;interface UseWebSocketOptions {
+  | WebSocketErrorMessage
+  | WebSocketCreditsSummaryMessage;interface UseWebSocketOptions {
   onStart?: (msg: WebSocketStartMessage) => void;
   onResult?: (msg: WebSocketResultMessage) => void;
   onComplete?: (msg: WebSocketCompleteMessage) => void;
   onError?: (msg: WebSocketErrorMessage) => void;
+  onCreditsSummary?: (msg: WebSocketCreditsSummaryMessage) => void;
 }
 
 /**
@@ -114,6 +124,9 @@ export function useWebSocket(options: UseWebSocketOptions) {
             break;
           case 'error':
             optionsRef.current.onError?.(msg);
+            break;
+          case 'credits_summary':
+            optionsRef.current.onCreditsSummary?.(msg);
             break;
         }
       } catch (err) {

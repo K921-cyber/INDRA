@@ -14,6 +14,10 @@ interface AuthState {
   error: string | null;
   /** Logged-in username (if authenticated) */
   username: string | null;
+  /** User's scan credits */
+  credits: number | null;
+  /** Whether the payment gateway is configured */
+  paymentConfigured: boolean;
 }
 
 interface AuthContextType extends AuthState {
@@ -25,6 +29,8 @@ interface AuthContextType extends AuthState {
   logout: () => void;
   /** Re-check auth status with the backend */
   checkAuth: () => Promise<void>;
+  /** Refresh the user's credit balance */
+  refreshCredits: () => Promise<void>;
   /** Whether registration is open */
   registrationOpen: boolean;
 }
@@ -35,10 +41,29 @@ const initialState: AuthState & { registrationOpen: boolean } = {
   isLoading: true,
   error: null,
   username: null,
+  credits: null,
+  paymentConfigured: false,
   registrationOpen: true,
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/** Fetch credits and paymentConfigured from the backend after login/register */
+async function fetchPaymentState(token: string): Promise<{ credits: number; paymentConfigured: boolean }> {
+  let credits = 0;
+  let paymentConfigured = false;
+  try {
+    const credRes = await fetch(`${API_BASE}/payment/credits`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (credRes.ok) { credits = (await credRes.json()).credits ?? 0; }
+  } catch {}
+  try {
+    const planRes = await fetch(`${API_BASE}/payment/plans`);
+    if (planRes.ok) { paymentConfigured = (await planRes.json()).configured ?? false; }
+  } catch {}
+  return { credits, paymentConfigured };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState & { registrationOpen: boolean }>(initialState);
@@ -98,7 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const verifyData = await verifyRes.json();
 
         if (verifyData.valid) {
-          // Token is still valid
+          // Token is still valid — also fetch payment status and credits
+          const { credits, paymentConfigured } = await fetchPaymentState(storedKey);
           setState(prev => ({
             isAuthenticated: true,
             authEnabled: true,
@@ -106,7 +132,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             error: null,
             username: localStorage.getItem('trinetra_username'),
             registrationOpen: prev.registrationOpen,
-          }));          } else {
+            credits,
+            paymentConfigured,
+          }));
+        } else {
           // Token expired or server restarted — clear it
           setApiKey(null);
           try { localStorage.removeItem('trinetra_username'); } catch {}
@@ -128,6 +157,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error: null,
           username: localStorage.getItem('trinetra_username'),
           registrationOpen: prev.registrationOpen,
+          credits: prev.credits,
+          paymentConfigured: prev.paymentConfigured,
         }));
       }
     } catch {
@@ -157,6 +188,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           localStorage.setItem('trinetra_username', data.username || username);
         } catch {}
+        // Fetch credits and paymentConfigured after successful registration
+        const { credits, paymentConfigured } = await fetchPaymentState(data.token);
         setState(prev => ({
           isAuthenticated: true,
           authEnabled: true,
@@ -164,6 +197,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error: null,
           username: data.username || username,
           registrationOpen: prev.registrationOpen,
+          credits,
+          paymentConfigured,
         }));
         return { success: true };
       } else {
@@ -197,6 +232,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           localStorage.setItem('trinetra_username', data.username || username);
         } catch {}
+        // Fetch credits and paymentConfigured after successful login
+        const { credits, paymentConfigured } = await fetchPaymentState(data.token);
         setState(prev => ({
           ...prev,
           isAuthenticated: true,
@@ -204,6 +241,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isLoading: false,
           error: null,
           username: data.username || username,
+          credits,
+          paymentConfigured,
         }));
         return true;
       } else {
@@ -238,7 +277,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading: false,
       error: null,
       username: null,
+      credits: null,
     }));
+  }, []);
+
+  const refreshCredits = useCallback(async () => {
+    const token = getStoredApiKey();
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/payment/credits`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setState(prev => ({ ...prev, credits: data.credits }));
+      }
+    } catch {
+      // Silently fail — credits will show as null
+    }
   }, []);
 
   // Check auth on mount
@@ -246,8 +302,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, [checkAuth]);
 
+  // Fetch credits when authenticated
+  useEffect(() => {
+    if (state.isAuthenticated && state.username) {
+      refreshCredits();
+    }
+  }, [state.isAuthenticated, state.username, refreshCredits]);
+
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, checkAuth, registrationOpen: state.registrationOpen }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, checkAuth, refreshCredits, registrationOpen: state.registrationOpen }}>
       {children}
     </AuthContext.Provider>
   );

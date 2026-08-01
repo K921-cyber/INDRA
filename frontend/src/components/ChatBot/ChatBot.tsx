@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { MessageCircle, X, Send, Bot, Loader2, FileText, Download } from 'lucide-react';
 import { api, ChatMessage } from '../../utils/api';
 import { useApp } from '../../store/AppContext';
+import { AppState, ToolResult } from '../../types';
 
 const WELCOME: ChatMessage = {
   role: 'assistant',
@@ -10,10 +11,10 @@ const WELCOME: ChatMessage = {
 };
 
 /** Build a compact text summary of the current scan for the AI to reason over */
-function buildContext(state: any): string {
+function buildContext(state: AppState): string {
   if (!state?.results || state.results.length === 0) return '';
   const target = state.searchQuery || 'unknown target';
-  const lines = state.results.slice(0, 25).map((r: any) => {
+  const lines = state.results.slice(0, 25).map((r: ToolResult) => {
     let gui = '';
     try {
       gui = r.guiData ? JSON.stringify(r.guiData).slice(0, 350) : '';
@@ -98,8 +99,9 @@ export default function ChatBot() {
       const context = buildContext(state);
       const res = await api.chat(text, next.slice(1), context || undefined);
       setMessages((m) => [...m, { role: 'assistant', content: res.reply }]);
-    } catch (err: any) {
-      setMessages((m) => [...m, { role: 'assistant', content: `⚠️ ${err?.message || 'Something went wrong.'}` }]);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong.';
+      setMessages((m) => [...m, { role: 'assistant', content: `⚠️ ${message}` }]);
     } finally {
       setLoading(false);
     }
@@ -120,8 +122,9 @@ export default function ChatBot() {
     try {
       const target = state?.searchQuery || 'report';
       await api.exportReportDocx(target, content);
-    } catch (err: any) {
-      setMessages((m) => [...m, { role: 'assistant', content: `⚠️ Could not generate the Word document: ${err?.message || 'Unknown error'}` }]);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setMessages((m) => [...m, { role: 'assistant', content: `⚠️ Could not generate the Word document: ${message}` }]);
     } finally {
       setDownloadingIdx(null);
     }

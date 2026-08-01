@@ -9,6 +9,8 @@ import {
   CrosshairIcon,
   TerminalIcon,
   ChevronRightIcon,
+  CheckIcon,
+  CreditCardIcon,
 } from '../Icons/Icons';
 
 interface LandingPageProps {
@@ -19,6 +21,34 @@ interface LandingPageProps {
    *  behaves the same as onEnterAuth — AuthGate decides what to show) */
   onOpenDashboard: () => void;
 }
+
+const PLANS = [
+  {
+    id: 'starter',
+    name: 'Starter',
+    amount: 99,
+    credits: 10,
+    description: 'Try it out — 1 OSINT search',
+    features: ['1 OSINT search', '10 credits per search', 'All 15 plugins', 'Live threat feed', 'AI chatbot'],
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    amount: 499,
+    credits: 100,
+    description: 'Regular use — 10 OSINT searches',
+    features: ['10 OSINT searches', '10 credits per search', 'All 15 plugins', 'Live threat feed', 'AI chatbot', 'Priority support'],
+    featured: true,
+  },
+  {
+    id: 'elite',
+    name: 'Elite',
+    amount: 1499,
+    credits: 500,
+    description: 'Power user — 50 OSINT searches',
+    features: ['50 OSINT searches', '10 credits per search', 'All 15 plugins', 'Live threat feed', 'AI chatbot', 'Priority support', 'Early access'],
+  },
+];
 
 const FEATURES = [
   {
@@ -175,6 +205,43 @@ export default function LandingPage({ onEnterAuth, onOpenDashboard }: LandingPag
               <span className="landing-step-num">{s.n}</span>
               <h3 className="landing-step-title">{s.title}</h3>
               <p className="landing-step-desc">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="landing-pricing" className="landing-section">
+        <div className="landing-section-header">
+          <span className="landing-section-eyebrow">Pricing</span>
+          <h2 className="landing-section-title">Simple, transparent pricing</h2>
+          <p className="landing-section-subtitle">
+            Pay per credits. Use them for OSINT scans across all 15 plugins.
+            No subscriptions, no hidden fees.
+          </p>
+        </div>
+        <div className="landing-pricing-grid">
+          {PLANS.map((plan) => (
+            <div className={`landing-plan-card ${plan.featured ? 'landing-plan-featured' : ''}`} key={plan.id}>
+              {plan.featured && <div className="landing-plan-badge">Most Popular</div>}
+              <h3 className="landing-plan-name">{plan.name}</h3>
+              <div className="landing-plan-price">
+                <span className="landing-plan-currency">₹</span>
+                <span className="landing-plan-amount">{plan.amount}</span>
+              </div>
+              <div className="landing-plan-credits">{plan.credits} credits</div>
+              <p className="landing-plan-desc">{plan.description}</p>
+              <ul className="landing-plan-features">
+                {plan.features.map((f, i) => (
+                  <li key={i}><CheckIcon size={12} /> {f}</li>
+                ))}
+              </ul>
+              <button
+                className={`landing-plan-btn ${plan.featured ? 'landing-plan-btn-featured' : ''}`}
+                onClick={onEnterAuth}
+              >
+                Get Started <ChevronRightIcon size={14} />
+              </button>
             </div>
           ))}
         </div>

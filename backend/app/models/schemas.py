@@ -32,6 +32,7 @@ class PluginResultData(BaseModel):
     gui_data: dict
     terminal_data: str
     error: Optional[str] = None
+    credit_cost: int = 1
 
 
 class SearchResponse(BaseModel):
@@ -41,3 +42,6 @@ class SearchResponse(BaseModel):
     total_plugins: int
     completed_plugins: int
     results: list[PluginResultData]
+    credits_used: Optional[int] = None
+    credits_refunded: Optional[int] = None
+    credits_remaining: Optional[int] = None

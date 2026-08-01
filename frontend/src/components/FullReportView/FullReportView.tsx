@@ -66,9 +66,10 @@ export default function FullReportView({ onClose }: { onClose: () => void }) {
         setAlerts(a);
         setLoading(false);
       }
-    }).catch((err: any) => {
+    }).catch((err: unknown) => {
       if (!cancelled) {
-        setError(err.message || 'Failed to load data');
+        const message = err instanceof Error ? err.message : 'Failed to load data';
+        setError(message);
         setLoading(false);
       }
     });

@@ -17,12 +17,14 @@ class PluginResult:
         terminal_data: Optional[str] = None,
         error: Optional[str] = None,
         timestamp: Optional[datetime] = None,
+        credit_cost: int = 1,
     ):
         self.plugin_id = plugin_id
         self.plugin_name = plugin_name
         self.category = category
         self.target = target
         self.status = status
+        self.credit_cost = credit_cost
         # Allow injecting a timestamp (e.g. when reconstructing from DB)
         # so freshness reflects the real age of the data.
         self.timestamp = timestamp if timestamp is not None else datetime.now(timezone.utc)
@@ -56,6 +58,7 @@ class PluginResult:
             "gui_data": self.gui_data,
             "terminal_data": self.terminal_data,
             "error": self.error,
+            "credit_cost": self.credit_cost,
         }
 
 
@@ -74,6 +77,7 @@ class OSINTPlugin(ABC):
     description: str = ""
     input_types: list[str] = ["domain"]  # domain, ip, email, phone, username, name
     icon: str = "🔌"
+    credit_cost: int = 1  # credits consumed on successful result (0 = free)
 
     def __init__(self):
         if not self.plugin_id:
@@ -92,9 +96,15 @@ class OSINTPlugin(ABC):
         pass
 
     async def run_safe(self, target: str) -> PluginResult:
-        """Wrapper that catches and reports errors gracefully."""
+        """Wrapper that catches and reports errors gracefully.
+        
+        Injects the plugin's credit_cost into every result so the
+        billing layer can charge per-plugin rates.
+        """
         try:
-            return await self.run(target)
+            result = await self.run(target)
+            result.credit_cost = self.credit_cost
+            return result
         except Exception as e:
             return PluginResult(
                 plugin_id=self.plugin_id,
@@ -103,4 +113,5 @@ class OSINTPlugin(ABC):
                 target=target,
                 status="failed",
                 error=str(e),
+                credit_cost=self.credit_cost,
             )

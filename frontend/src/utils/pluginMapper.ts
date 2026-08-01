@@ -13,5 +13,6 @@ export function mapPluginResult(r: PluginResultData): ToolResult {
     status: r.status as ToolResult['status'],
     guiData: r.gui_data,
     terminalData: r.terminal_data,
+    creditCost: r.credit_cost ?? 1,
   };
 }

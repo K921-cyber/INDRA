@@ -13,11 +13,13 @@ import LiveFeed from './components/LiveFeed/LiveFeed';
 import ScanProgress from './components/ScanProgress/ScanProgress';
 import LoginPage from './components/LoginPage/LoginPage';
 import LandingPage from './components/LandingPage/LandingPage';
+import PaymentPage from './components/PaymentPage/PaymentPage';
 import ChatBot from './components/ChatBot/ChatBot';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import { ShieldIcon, SearchIcon, EyeIcon, BoltIcon, LogOutIcon, KeyIcon } from './components/Icons/Icons';
+import CreditsBadge from './components/CreditsBadge/CreditsBadge';
 
-function DashboardContent() {
+function DashboardContent({ onBuyCredits }: { onBuyCredits?: () => void }) {
   const { state, dispatch } = useApp();
   const { authEnabled, logout, username } = useAuth();
   const isIdle = !state.isSearching && state.results.length === 0;
@@ -64,6 +66,9 @@ function DashboardContent() {
         </nav>
 
         {state.activeTab === 'search' && <SearchBar />}
+
+        {/* Credits Badge */}
+        <CreditsBadge onBuyCredits={onBuyCredits} />
 
         {/* Auth indicator & logout */}
         {authEnabled && (
@@ -133,7 +138,8 @@ function DashboardContent() {
 }
 
 function AuthGate() {
-  const { isAuthenticated, isLoading, error, checkAuth } = useAuth();
+  const { isAuthenticated, isLoading, error, checkAuth, credits, paymentConfigured } = useAuth();
+  const [showPayment, setShowPayment] = useState(false);
 
   // Still loading auth status
   if (isLoading && isAuthenticated === null) {
@@ -198,8 +204,41 @@ function AuthGate() {
     return <LoginPage />;
   }
 
-  // Authenticated — show dashboard
-  return <DashboardContent />;
+  // Returning from Cashfree checkout with ?order_id= — always run verification
+  // on the payment page so credits confirm + refresh reliably, even if the
+  // webhook already added them before the redirect landed.
+  const returningOrderId = new URLSearchParams(window.location.search).get('order_id');
+  if (returningOrderId) {
+    return (
+      <PaymentPage
+        onPaymentComplete={() => {
+          window.history.replaceState({}, '', '/');
+          checkAuth();
+        }}
+        onSkip={() => {
+          window.history.replaceState({}, '', '/');
+          setShowPayment(false);
+        }}
+      />
+    );
+  }
+
+  // Authenticated but no credits and payment is configured — show payment page
+  if (credits !== null && credits <= 0 && paymentConfigured) {
+    return <PaymentPage onPaymentComplete={checkAuth} />;
+  }
+
+  // Authenticated — show dashboard (credits > 0 or payment not configured)
+  if (showPayment) {
+    return (
+      <PaymentPage
+        onPaymentComplete={() => { setShowPayment(false); checkAuth(); }}
+        onSkip={() => setShowPayment(false)}
+      />
+    );
+  }
+
+  return <DashboardContent onBuyCredits={() => setShowPayment(true)} />;
 }
 
 export default function App() {

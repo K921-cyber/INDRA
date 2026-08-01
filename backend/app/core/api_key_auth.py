@@ -132,7 +132,8 @@ def _get_db():
 
 
 def init_users_table():
-    """Create the users, sessions, and login_attempts tables if they don't exist."""
+    """Create the users, sessions, login_attempts, password_history,
+    and payment-related tables if they don't exist."""
     conn = _get_db()
     if not conn:
         return False
@@ -144,6 +145,7 @@ def init_users_table():
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 is_admin INTEGER DEFAULT 0,
+                credits INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT (datetime('now'))
             );
 
@@ -173,12 +175,35 @@ def init_users_table():
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS payment_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id TEXT UNIQUE NOT NULL,
+                user_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT DEFAULT 'INR',
+                credits INTEGER NOT NULL,
+                status TEXT DEFAULT 'pending',
+                payment_method TEXT,
+                cf_payment_id TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
             CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
             CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
             CREATE INDEX IF NOT EXISTS idx_login_attempts_username ON login_attempts(username, attempted_at);
             CREATE INDEX IF NOT EXISTS idx_password_history_user_id ON password_history(user_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_payment_history_order_id ON payment_history(order_id);
+            CREATE INDEX IF NOT EXISTS idx_payment_history_user_id ON payment_history(user_id);
         """)
         conn.commit()
+        # Migrate: add credits column to existing users table if missing
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN credits INTEGER DEFAULT 0")
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
         return True
     except Exception as e:
         logger.error("Failed to init users table: %s", e)
@@ -280,9 +305,11 @@ def create_user(username: str, email: str, password: str) -> tuple[bool, str]:
             return False, "This password was recently used. Please choose a different password."
 
         password_hash = _hash_password(password)
+        # New users start with 0 credits — they must purchase a plan
+        # (via PaymentPage / Cashfree) before using the OSINT tools.
         conn.execute(
-            "INSERT INTO users (username, email, password_hash, is_admin) VALUES (?, ?, ?, ?)",
-            (username, email, password_hash, is_admin),
+            "INSERT INTO users (username, email, password_hash, is_admin, credits) VALUES (?, ?, ?, ?, ?)",
+            (username, email, password_hash, is_admin, 0),
         )
         conn.commit()
         
@@ -309,7 +336,7 @@ def get_user(username: str) -> dict | None:
         return None
     try:
         cursor = conn.execute(
-            "SELECT id, username, email, password_hash, is_admin, created_at FROM users WHERE username = ?",
+            "SELECT id, username, email, password_hash, is_admin, created_at, credits FROM users WHERE username = ?",
             (username,),
         )
         row = cursor.fetchone()
@@ -511,6 +538,189 @@ def clear_all_tokens():
         conn.commit()
     except Exception as e:
         logger.error("Failed to clear tokens: %s", e)
+    finally:
+        conn.close()
+
+
+# ── Credits system ───────────────────────────────────────
+
+
+def get_user_credits(username: str) -> int:
+    """Get the credit balance for a user."""
+    user = get_user(username)
+    if not user:
+        return 0
+    return user.get("credits", 0)
+
+
+def get_user_id(username: str) -> int | None:
+    """Get the user ID for a username."""
+    conn = _get_db()
+    if not conn:
+        return None
+    try:
+        cursor = conn.execute("SELECT id FROM users WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        return row["id"] if row else None
+    except Exception:
+        return None
+    finally:
+        conn.close()
+
+
+def add_credits(username: str, amount: int) -> bool:
+    """Add credits to a user's account. Returns True on success."""
+    conn = _get_db()
+    if not conn:
+        return False
+    try:
+        conn.execute(
+            "UPDATE users SET credits = credits + ? WHERE username = ?",
+            (amount, username),
+        )
+        conn.commit()
+        return conn.total_changes > 0
+    except Exception as e:
+        logger.error("Failed to add credits: %s", e)
+        return False
+    finally:
+        conn.close()
+
+
+def deduct_credits(username: str, amount: int = 1) -> tuple[bool, int]:
+    """Deduct credits from a user's account atomically.
+
+    Returns (success, remaining_credits).
+    If insufficient credits, returns (False, current_balance).
+    """
+    conn = _get_db()
+    if not conn:
+        return False, 0
+    try:
+        # Atomic: only deduct if enough credits available
+        cursor = conn.execute(
+            "UPDATE users SET credits = credits - ? WHERE username = ? AND credits >= ?",
+            (amount, username, amount),
+        )
+        if cursor.rowcount == 0:
+            # No row updated — either user not found or insufficient credits
+            check = conn.execute(
+                "SELECT credits FROM users WHERE username = ?",
+                (username,),
+            ).fetchone()
+            return False, (check["credits"] if check else 0)
+        conn.commit()
+        # Fetch remaining balance
+        row = conn.execute(
+            "SELECT credits FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        remaining = row["credits"] if row else 0
+        return True, remaining
+    except Exception as e:
+        logger.error("Failed to deduct credits: %s", e)
+        return False, 0
+    finally:
+        conn.close()
+
+
+def record_payment(
+    order_id: str,
+    username: str,
+    amount: float,
+    credits: int,
+    status: str = "pending",
+    payment_method: str | None = None,
+    cf_payment_id: str | None = None,
+) -> bool:
+    """Record a payment in the payment_history table."""
+    user_id = get_user_id(username)
+    if not user_id:
+        return False
+    conn = _get_db()
+    if not conn:
+        return False
+    try:
+        conn.execute(
+            "INSERT OR IGNORE INTO payment_history (order_id, user_id, amount, credits, status, payment_method, cf_payment_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (order_id, user_id, amount, credits, status, payment_method, cf_payment_id),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error("Failed to record payment: %s", e)
+        return False
+    finally:
+        conn.close()
+
+
+def update_payment_status(
+    order_id: str,
+    status: str,
+    payment_method: str | None = None,
+    cf_payment_id: str | None = None,
+) -> bool:
+    """Update the status of a payment order."""
+    conn = _get_db()
+    if not conn:
+        return False
+    try:
+        updates = ["status = ?", "updated_at = datetime('now')"]
+        params: list = [status]
+        if payment_method:
+            updates.append("payment_method = ?")
+            params.append(payment_method)
+        if cf_payment_id:
+            updates.append("cf_payment_id = ?")
+            params.append(cf_payment_id)
+        params.append(order_id)
+        conn.execute(
+            f"UPDATE payment_history SET {', '.join(updates)} WHERE order_id = ?",
+            params,
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error("Failed to update payment status: %s", e)
+        return False
+    finally:
+        conn.close()
+
+
+def get_payment_by_order(order_id: str) -> dict | None:
+    """Get a payment record by order ID."""
+    conn = _get_db()
+    if not conn:
+        return None
+    try:
+        cursor = conn.execute(
+            "SELECT ph.*, u.username FROM payment_history ph JOIN users u ON ph.user_id = u.id WHERE ph.order_id = ?",
+            (order_id,),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    except Exception:
+        return None
+    finally:
+        conn.close()
+
+
+def get_user_payment_history(username: str) -> list[dict]:
+    """Get payment history for a user."""
+    user_id = get_user_id(username)
+    if not user_id:
+        return []
+    conn = _get_db()
+    if not conn:
+        return []
+    try:
+        cursor = conn.execute(
+            "SELECT * FROM payment_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
+            (user_id,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+    except Exception:
+        return []
     finally:
         conn.close()
 

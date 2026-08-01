@@ -5,6 +5,7 @@ import { AppProvider } from './store/AppContext';
 import { ThreatProvider } from './store/ThreatContext';
 import { AuthProvider } from './store/AuthContext';
 import './styles.css';
+import './components/PaymentPage/PaymentPage.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

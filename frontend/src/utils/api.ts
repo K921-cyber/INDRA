@@ -73,9 +73,10 @@ export interface PluginResultData {
   status: string;
   freshness: string;
   timestamp: string;
-  gui_data: Record<string, any>;
+  gui_data: Record<string, unknown>;
   terminal_data: string;
   error?: string;
+  credit_cost?: number;
 }
 
 export interface PluginInfo {
@@ -110,8 +111,8 @@ export interface AlertResponse {
   watch_id: number;
   target: string;
   plugin_id: string;
-  old_data: Record<string, any>;
-  new_data: Record<string, any>;
+  old_data: Record<string, unknown>;
+  new_data: Record<string, unknown>;
   summary: string;
   created_at: string;
 }

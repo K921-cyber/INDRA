@@ -68,9 +68,10 @@ function PluginSelector({
         setPlugins(res.plugins);
         setLoading(false);
       }
-    }).catch((err: any) => {
+    }).catch((err: unknown) => {
       if (!cancelled) {
-        setError(err.message || 'Failed to load plugins');
+        const message = err instanceof Error ? err.message : 'Failed to load plugins';
+        setError(message);
         setLoading(false);
       }
     });
@@ -249,8 +250,9 @@ function NewWatchForm({ onCreated }: { onCreated: () => void }) {
       setDetectedType('unknown');
       setSelectedPlugins([]);
       onCreated();
-    } catch (err: any) {
-      setError(err.message || 'Failed to create watch');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to create watch';
+      setError(message);
     } finally {
       setCreating(false);
     }
@@ -417,8 +419,9 @@ export default function WatchPanel() {
       ]);
       setWatches(w);
       setAlerts(a);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load watches');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load watches';
+      setError(message);
     } finally {
       setLoading(false);
     }

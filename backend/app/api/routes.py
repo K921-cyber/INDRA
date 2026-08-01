@@ -7,7 +7,7 @@ from app.models.schemas import SearchRequest, SearchResponse, PluginResultData
 from app.services.orchestrator import OrchestratorService
 from app.core.detector import AutoDetect
 from app.core.sanitizer import sanitize_target, validate_target, InputValidationError
-from app.core.api_key_auth import require_api_key, login, logout_token, is_auth_enabled, validate_token, create_user, validate_password_strength, change_password, get_username_for_token
+from app.core.api_key_auth import require_api_key, login, logout_token, is_auth_enabled, validate_token, create_user, validate_password_strength, change_password, get_username_for_token, get_user_credits, deduct_credits, add_credits
 from app.core.config import settings
 import re
 
@@ -30,6 +30,7 @@ async def auth_status():
         "registration_open": True,
         "app_name": settings.app_name,
         "version": settings.version,
+        "payment_configured": bool(settings.cashfree_app_id and settings.cashfree_secret_key),
     }
 
 
@@ -294,7 +295,22 @@ async def target_intel(target: str, _key: str = Depends(require_api_key)):
 
 @router.post("/search")
 async def search(request: SearchRequest, _key: str = Depends(require_api_key)):
-    """Run all applicable OSINT plugins against a target."""
+    """Run all applicable OSINT plugins against a target.
+
+    Flat credit billing:
+      - Every search costs a flat CREDITS_PER_SEARCH (10) credits,
+        regardless of how many plugins match.
+      - Credits are deducted BEFORE the scan.
+      - The full amount is REFUNDED if the entire scan crashes or
+        returns zero successful results.
+    """
+    from app.core.config import settings as app_settings
+    from app.services.payment_service import CREDITS_PER_SEARCH
+
+    username = get_username_for_token(_key)
+    if not username:
+        raise HTTPException(401, detail={"error": "Invalid session"})
+
     # Sanitize input
     try:
         target = sanitize_target(request.target)
@@ -311,8 +327,59 @@ async def search(request: SearchRequest, _key: str = Depends(require_api_key)):
     if target_type == "unknown":
         target_type = "domain"  # default fallback
 
-    # Run all matching plugins in parallel
-    results = await orchestrator.run_all(target, target_type)
+    # ── Flat credit billing ─────────────────────────────────────────
+    payment_configured = bool(app_settings.cashfree_app_id and app_settings.cashfree_secret_key)
+    credits_used = 0
+    credits_refunded = 0
+    remaining = None
+
+    if payment_configured:
+        total_cost = CREDITS_PER_SEARCH
+
+        user_credits = get_user_credits(username)
+        if user_credits < total_cost:
+            raise HTTPException(
+                402,
+                detail={
+                    "error": "Insufficient credits",
+                    "detail": f"Each search costs {total_cost} credits. You have {user_credits}.",
+                    "credits": user_credits,
+                    "credits_required": total_cost,
+                },
+            )
+
+        # Deduct flat cost before running scan
+        success, remaining = deduct_credits(username, total_cost)
+        if not success:
+            raise HTTPException(402, detail={"error": "Failed to deduct credits. Please try again."})
+        credits_used = total_cost
+
+    # ── Run plugins ──────────────────────────────────────────────────
+    try:
+        results = await orchestrator.run_all(target, target_type)
+    except Exception as e:
+        logger.error("Scan failed for target=%s: %s", target, e)
+        if payment_configured:
+            add_credits(username, credits_used)
+            remaining = get_user_credits(username)
+        raise HTTPException(500, detail={"error": "Scan failed. Credits have been refunded."})
+
+    # ── Refund if the entire scan failed (zero successful results) ───
+    if payment_configured and credits_used > 0:
+        completed_count = sum(1 for r in results if r.get("status") == "completed")
+        if completed_count == 0:
+            refund_ok = add_credits(username, credits_used)
+            if not refund_ok:
+                logger.error(
+                    "Failed to refund %d credits for user=%s target=%s",
+                    credits_used, username, target,
+                )
+            credits_refunded = credits_used
+            remaining = get_user_credits(username)
+            logger.info(
+                "Refunded %d credits — scan produced no successful results (target=%s user=%s)",
+                credits_used, target, username,
+            )
 
     return SearchResponse(
         target=target,
@@ -321,12 +388,25 @@ async def search(request: SearchRequest, _key: str = Depends(require_api_key)):
         total_plugins=len(results),
         completed_plugins=sum(1 for r in results if r.get("status") == "completed"),
         results=results,
+        credits_used=credits_used if payment_configured else None,
+        credits_refunded=credits_refunded if payment_configured else None,
+        credits_remaining=remaining,
     )
 
 
 @router.get("/search/{target}")
 async def search_get(target: str, _key: str = Depends(require_api_key)):
-    """GET version of search for simple lookups."""
+    """GET version of search for simple lookups.
+
+    Same flat credit billing as POST /search.
+    """
+    from app.core.config import settings as app_settings
+    from app.services.payment_service import CREDITS_PER_SEARCH
+
+    username = get_username_for_token(_key)
+    if not username:
+        raise HTTPException(401, detail={"error": "Invalid session"})
+
     # Sanitize input
     try:
         target = sanitize_target(target)
@@ -337,7 +417,50 @@ async def search_get(target: str, _key: str = Depends(require_api_key)):
     if target_type == "unknown":
         target_type = "domain"
 
-    results = await orchestrator.run_all(target, target_type)
+    # Flat credit billing
+    payment_configured = bool(app_settings.cashfree_app_id and app_settings.cashfree_secret_key)
+    credits_used = 0
+    credits_refunded = 0
+    remaining = None
+
+    if payment_configured:
+        total_cost = CREDITS_PER_SEARCH
+
+        user_credits = get_user_credits(username)
+        if user_credits < total_cost:
+            raise HTTPException(
+                402,
+                detail={
+                    "error": "Insufficient credits",
+                    "detail": f"Each search costs {total_cost} credits. You have {user_credits}.",
+                    "credits": user_credits,
+                    "credits_required": total_cost,
+                },
+            )
+
+        success, remaining = deduct_credits(username, total_cost)
+        if not success:
+            raise HTTPException(402, detail={"error": "Failed to deduct credits. Please try again."})
+        credits_used = total_cost
+
+    try:
+        results = await orchestrator.run_all(target, target_type)
+    except Exception as e:
+        logger.error("Scan failed for target=%s: %s", target, e)
+        if payment_configured and credits_used > 0:
+            add_credits(username, credits_used)
+            remaining = get_user_credits(username)
+        raise HTTPException(500, detail={"error": "Scan failed. Credits have been refunded."})
+
+    # Refund if the entire scan failed (zero successful results)
+    if payment_configured and credits_used > 0:
+        completed_count = sum(1 for r in results if r.get("status") == "completed")
+        if completed_count == 0:
+            refund_ok = add_credits(username, credits_used)
+            if not refund_ok:
+                logger.error("Failed to refund %d credits for user=%s target=%s", credits_used, username, target)
+            credits_refunded = credits_used
+            remaining = get_user_credits(username)
 
     return SearchResponse(
         target=target,
@@ -346,6 +469,9 @@ async def search_get(target: str, _key: str = Depends(require_api_key)):
         total_plugins=len(results),
         completed_plugins=sum(1 for r in results if r.get("status") == "completed"),
         results=results,
+        credits_used=credits_used if payment_configured else None,
+        credits_refunded=credits_refunded if payment_configured else None,
+        credits_remaining=remaining,
     )
 
 
@@ -361,7 +487,7 @@ async def detect_target(target: str, _key: str = Depends(require_api_key)):
 
 @router.get("/plugins")
 async def list_plugins(_key: str = Depends(require_api_key)):
-    """List all available OSINT plugins."""
+    """List all available OSINT plugins with their credit costs."""
     from app.plugins.registry import plugin_registry
     return {
         "total": len(plugin_registry.plugins),
@@ -372,6 +498,7 @@ async def list_plugins(_key: str = Depends(require_api_key)):
                 "category": p.category,
                 "description": p.description,
                 "input_types": p.input_types,
+                "credit_cost": p.credit_cost,
             }
             for p in plugin_registry.plugins
         ],

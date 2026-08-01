@@ -10,6 +10,9 @@ import { BoltIcon, FlameIcon, GraphIcon, HomeIcon, SearchIcon } from '../Icons/I
 import { VectorDetailModal, VectorLike } from '../VectorDetailModal/VectorDetailModal';
 import DataSourcesPanel from '../DataSourcesPanel/DataSourcesPanel';
 
+// GeoJSON Feature type for India states map
+interface GeoFeature extends GeoJSON.Feature<GeoJSON.Geometry> {}
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 // ==================== Color Constants ====================
@@ -521,7 +524,7 @@ function CrimeHeatmap({ visible, crimeData }: { visible: boolean; crimeData: Cri
 
   const maxCount = Math.max(...crimeData.map(cd => cd.incidentCount), 1);
 
-  const geoStyle = (feature: { properties?: Record<string, string> }) => {
+  const geoStyle = (feature?: GeoJSON.Feature) => {
     const stateName = feature?.properties?.name?.toLowerCase();
     const cd = stateName ? crimeDataByName.get(stateName) : undefined;
     const intensity = cd ? Math.min(cd.incidentCount / maxCount, 1) : 0;
@@ -537,7 +540,7 @@ function CrimeHeatmap({ visible, crimeData }: { visible: boolean; crimeData: Cri
     return { color, weight, opacity, fillColor, fillOpacity };
   };
 
-  const onEachFeature = (feature: { properties?: Record<string, string> }, layer: L.Layer) => {
+  const onEachFeature = (feature: GeoJSON.Feature, layer: L.Layer) => {
     const pathLayer = layer as L.Path;
     const stateName = feature?.properties?.name || 'Unknown State';
     const cd = crimeDataByName.get(stateName.toLowerCase());
@@ -569,7 +572,7 @@ function CrimeHeatmap({ visible, crimeData }: { visible: boolean; crimeData: Cri
       );
     }
 
-    const originalStyle = geoStyle(feature as any);
+    const originalStyle = geoStyle(feature);
     pathLayer.on('mouseover', function (this: L.Path) {
       this.setStyle({ weight: 2.5, fillOpacity: 0.4 });
       this.bringToFront();
@@ -583,8 +586,8 @@ function CrimeHeatmap({ visible, crimeData }: { visible: boolean; crimeData: Cri
     <GeoJSON
       key="crime-heatmap"
       data={indiaStatesGeoJSON}
-      style={geoStyle as any}
-      onEachFeature={onEachFeature as any}
+      style={geoStyle}
+      onEachFeature={onEachFeature}
     />
   );
 }

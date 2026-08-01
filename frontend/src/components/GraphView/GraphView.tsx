@@ -26,7 +26,12 @@ const nodeColors: Record<string, string> = {
   advanced: '#8b5cf6',
 };
 
-const styles: any[] = [
+interface GraphStylesheetEntry {
+  selector: string;
+  style: Record<string, string | number>;
+}
+
+const styles: GraphStylesheetEntry[] = [
   {
     selector: 'node',
     style: {
